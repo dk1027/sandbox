@@ -28,6 +28,7 @@ setup-kafka:
 	kubectl wait --for=condition=established --timeout=60s crd/kafkas.kafka.strimzi.io
 	kubectl apply -f k8s/kafka-cluster.yaml -n kafka
 	kubectl apply -f k8s/schema-registry.yaml -n kafka
+	kubectl apply -f k8s/kafka-ui.yaml -n kafka
 
 setup-monitoring:
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -53,3 +54,8 @@ grafana-port-forward:
 grafana-password:
 	@echo "Grafana Admin Password:"
 	@kubectl get secret --namespace monitoring -l app.kubernetes.io/component=admin-secret -o jsonpath="{.items[0].data.admin-password}" | base64 --decode ; echo
+
+kafka-ui-port-forward:
+	@echo "Forwarding Kafka UI to http://localhost:8080..."
+	@export POD_NAME=$$(kubectl get pods --namespace kafka -l "app=kafka-ui" -o jsonpath="{.items[0].metadata.name}"); \
+	kubectl --namespace kafka port-forward $$POD_NAME 8080:8080

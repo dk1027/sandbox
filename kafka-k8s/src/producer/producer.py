@@ -15,7 +15,7 @@ MESSAGES_PUBLISHED = Counter('messages_published_total', 'Total messages publish
 KAFKA_BROKERS = os.getenv('KAFKA_BROKERS', 'my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092')
 TOPIC = os.getenv('TOPIC', 'test-topic')
 METRICS_PORT = int(os.getenv('METRICS_PORT', '8000'))
-SCHEMA_REGISTRY_URL = os.getenv('SCHEMA_REGISTRY_URL', 'http://schema-registry.kafka.svc.cluster.local:8081')
+SCHEMA_REGISTRY_URL = os.getenv('SCHEMA_REGISTRY_URL', 'http://confluent-sr.kafka.svc.cluster.local:8081')
 
 schema_str = """
 {

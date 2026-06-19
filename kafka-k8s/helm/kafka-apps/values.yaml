@@ -1,7 +1,7 @@
 kafka:
   bootstrapServers: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
   topic: "test-topic"
-  schemaRegistryUrl: "http://schema-registry.kafka.svc.cluster.local:8081"
+  schemaRegistryUrl: "http://confluent-sr.kafka.svc.cluster.local:8081"
 
 producer:
   image:

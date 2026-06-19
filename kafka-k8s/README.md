@@ -87,6 +87,16 @@ make grafana-port-forward
 
 3. Open [http://localhost:3000](http://localhost:3000) in your browser and log in with username **`admin`** and the password retrieved above.
 
+### Accessing Kafka UI
+To explore Kafka topics, view messages, and manage Schema Registry through a web interface:
+
+1. Port-forward the Kafka UI service:
+```bash
+make kafka-ui-port-forward
+```
+
+2. Open [http://localhost:8080](http://localhost:8080) in your browser.
+
 ### Viewing App Logs
 If you want to debug the test applications directly via standard output:
 ```bash
