@@ -1,0 +1,21 @@
+kafka:
+  bootstrapServers: "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+  topic: "test-topic"
+  schemaRegistryUrl: "http://schema-registry.kafka.svc.cluster.local:8081"
+
+producer:
+  image:
+    repository: kafka-producer
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  metricsPort: 8000
+
+consumer:
+  image:
+    repository: kafka-consumer
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  groupId: "test-group"
+  metricsPort: 8000

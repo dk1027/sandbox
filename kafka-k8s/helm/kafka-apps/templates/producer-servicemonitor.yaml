@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "kafka-apps.fullname" . }}-producer
+  labels:
+    app: producer
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: producer
+  endpoints:
+  - port: metrics
+    interval: 15s

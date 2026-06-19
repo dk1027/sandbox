@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kafka-apps
+description: A Helm chart for deploying Kafka producer and consumer test apps
+type: application
+version: 0.1.0
+appVersion: "1.0"
