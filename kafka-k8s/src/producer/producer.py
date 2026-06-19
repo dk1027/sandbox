@@ -10,7 +10,11 @@ from prometheus_client import start_http_server, Counter
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MESSAGES_PUBLISHED = Counter('messages_published_total', 'Total messages published to Kafka')
+MESSAGES_PUBLISHED = Counter(
+    'messages_published_total',
+    'Total messages published by the Kafka producer',
+    ['succeed', 'queued', 'reason'],
+)
 
 KAFKA_BROKERS = os.getenv('KAFKA_BROKERS', 'my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092')
 TOPIC = os.getenv('TOPIC', 'test-topic')
@@ -32,9 +36,10 @@ schema_str = """
 def delivery_report(err, msg):
     if err is not None:
         logger.error(f"Message delivery failed: {err}")
+        MESSAGES_PUBLISHED.labels(succeed='false', queued='true', reason=type(err).__name__).inc()
     else:
         logger.info(f"Message delivered to {msg.topic()} [{msg.partition()}]")
-        MESSAGES_PUBLISHED.inc()
+        MESSAGES_PUBLISHED.labels(succeed='true', queued='true', reason='').inc()
 
 def main():
     logger.info(f"Starting producer. Connecting to {KAFKA_BROKERS}, topic: {TOPIC}")
@@ -54,19 +59,24 @@ def main():
 
     counter = 0
     while True:
+        user = {"name": f"User_{counter}", "age": 20 + (counter % 50)}
         try:
-            user = {"name": f"User_{counter}", "age": 20 + (counter % 50)}
             producer.produce(topic=TOPIC,
                              key=string_serializer(str(counter)),
                              value=avro_serializer(user, SerializationContext(TOPIC, MessageField.VALUE)),
                              on_delivery=delivery_report)
-            producer.poll(0)
             logger.info(f"Produced message {counter}")
         except Exception as e:
             logger.error(f"Exception producing message: {e}")
+            MESSAGES_PUBLISHED.labels(succeed='false', queued='false', reason=type(e).__name__).inc()
+        finally:
+            try:
+                producer.poll(0)
+            except Exception as e:
+                logger.error(f"Exception polling producer: {e}")
         
         counter += 1
-        time.sleep(2)
+        time.sleep(10)
 
 if __name__ == '__main__':
     main()

@@ -14,7 +14,7 @@ Everything is managed via Infrastructure as Code principles using a single entry
   * `kafka-cluster.yaml`: Strimzi CRD manifests using the modern KRaft architecture and `KafkaNodePool`s.
   * `schema-registry.yaml`: A standard deployment and service for Confluent Schema Registry.
 * **`src/`**: 
-  * `producer/`: Python source, `requirements.txt`, and `Dockerfile` for the Kafka producer application. Produces Avro payloads using `confluent-kafka` and exposes `messages_published_total` metrics.
+  * `producer/`: Python source, `requirements.txt`, and `Dockerfile` for the Kafka producer application. Produces Avro payloads using `confluent-kafka` and exposes `messages_published_total` with `succeed`, `queued`, and `reason` labels.
   * `consumer/`: Python source, `requirements.txt`, and `Dockerfile` for the Kafka consumer application. Exposes `messages_consumed_total` metrics.
 * **`helm/`**: 
   * `kafka-apps/`: A custom Helm chart that deploys the producer and consumer applications. It wires up `ServiceMonitor` resources so that the Prometheus stack scrapes them automatically.
