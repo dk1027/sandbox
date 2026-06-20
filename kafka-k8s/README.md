@@ -16,8 +16,10 @@ Everything is managed via Infrastructure as Code principles using a single entry
 * **`src/`**: 
   * `producer/`: Python source, `requirements.txt`, and `Dockerfile` for the Kafka producer application. Produces Avro payloads using `confluent-kafka` and exposes `messages_published_total` with `succeed`, `queued`, and `reason` labels.
   * `consumer/`: Python source, `requirements.txt`, and `Dockerfile` for the Kafka consumer application. Exposes `messages_consumed_total` metrics.
+  * `chaos_monkey/`: Go source, `go.mod`, and `Dockerfile` for the Chaos Monkey placeholder application.
 * **`helm/`**: 
   * `kafka-apps/`: A custom Helm chart that deploys the producer and consumer applications. It wires up `ServiceMonitor` resources so that the Prometheus stack scrapes them automatically.
+  * `chaos-monkey/`: A custom Helm chart that deploys the Go-based Chaos Monkey placeholder application.
 
 ---
 
@@ -57,6 +59,19 @@ make redeploy-apps
 ```
 
 This target builds the latest images, loads them into the kind nodes, triggers the helm upgrade, and gracefully restarts the application pods so they pull the updated images.
+
+Similarly, if you modify the Go application code in `src/chaos_monkey/main.go`, you can rebuild and roll out updates using:
+
+```bash
+make redeploy-chaos-monkey
+```
+
+Or run the build and deploy steps individually:
+
+```bash
+make build-chaos-monkey
+make deploy-chaos-monkey
+```
 
 ---
 
@@ -105,4 +120,7 @@ kubectl logs -f -l app=producer -n apps
 
 # View Consumer logs
 kubectl logs -f -l app=consumer -n apps
+
+# View Chaos Monkey logs
+kubectl logs -f -l app=chaos-monkey -n apps
 ```

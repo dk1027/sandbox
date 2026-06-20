@@ -1,6 +1,6 @@
 CLUSTER_NAME ?= kafka-cluster
 
-.PHONY: all cluster apply-limits build setup-strimzi setup-kafka setup-monitoring deploy-apps teardown redeploy-apps
+.PHONY: all cluster apply-limits build setup-strimzi setup-kafka setup-monitoring deploy-apps teardown redeploy-apps build-chaos-monkey deploy-chaos-monkey redeploy-chaos-monkey
 
 all: cluster apply-limits build setup-strimzi setup-kafka setup-monitoring deploy-apps
 
@@ -19,6 +19,10 @@ build:
 	kind load docker-image kafka-producer:latest --name $(CLUSTER_NAME)
 	kind load docker-image kafka-consumer:latest --name $(CLUSTER_NAME)
 
+build-chaos-monkey:
+	docker build -t chaos-monkey:latest src/chaos_monkey
+	kind load docker-image chaos-monkey:latest --name $(CLUSTER_NAME)
+
 setup-strimzi:
 	helm repo add strimzi https://strimzi.io/charts/
 	helm repo update
@@ -34,17 +38,22 @@ setup-monitoring:
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 	helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace \
-		--set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
-		--set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false
+		-f k8s/prometheus-values.yaml
 
 deploy-apps:
 	helm upgrade --install kafka-apps ./helm/kafka-apps --namespace apps --create-namespace
+
+deploy-chaos-monkey:
+	helm upgrade --install chaos-monkey ./helm/chaos-monkey --namespace apps --create-namespace
 
 teardown:
 	kind delete cluster --name $(CLUSTER_NAME)
 
 redeploy-apps: build deploy-apps
 	kubectl rollout restart deployment -n apps kafka-apps-producer kafka-apps-consumer
+
+redeploy-chaos-monkey: build-chaos-monkey deploy-chaos-monkey
+	kubectl rollout restart deployment -n apps chaos-monkey
 
 grafana-port-forward:
 	@echo "Forwarding Grafana to http://localhost:3000..."
