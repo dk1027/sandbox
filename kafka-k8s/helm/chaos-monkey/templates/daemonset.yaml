@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "chaos-monkey.fullname" . }}-daemon
+  labels:
+    app: {{ include "chaos-monkey.fullname" . }}-daemon
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "chaos-monkey.fullname" . }}-daemon
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.daemon.metricsPort }}"
+        prometheus.io/path: "/metrics"
+      labels:
+        app: {{ include "chaos-monkey.fullname" . }}-daemon
+    spec:
+      hostPID: true
+      serviceAccountName: {{ include "chaos-monkey.fullname" . }}-daemon
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: chaos-monkey-daemon
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              add:
+                - BPF
+                - PERFMON
+                - NET_ADMIN
+                - SYS_ADMIN
+          command:
+            - "/app/chaos-monkey"
+          args:
+            - "-mode=daemon"
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.daemon.metricsPort }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.daemon.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

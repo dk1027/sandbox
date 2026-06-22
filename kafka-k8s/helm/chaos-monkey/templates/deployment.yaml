@@ -1,27 +1,30 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "chaos-monkey.fullname" . }}
+  name: {{ include "chaos-monkey.fullname" . }}-controller
   labels:
-    app: chaos-monkey
+    app: {{ include "chaos-monkey.fullname" . }}-controller
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: {{ .Values.controller.replicaCount }}
   selector:
     matchLabels:
-      app: chaos-monkey
+      app: {{ include "chaos-monkey.fullname" . }}-controller
   template:
     metadata:
       labels:
-        app: chaos-monkey
+        app: {{ include "chaos-monkey.fullname" . }}-controller
     spec:
+      serviceAccountName: {{ include "chaos-monkey.fullname" . }}-controller
       containers:
-        - name: chaos-monkey
+        - name: chaos-monkey-controller
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.resources }}
+          command:
+            - "/app/chaos-monkey"
+          args:
+            - "-mode=controller"
           resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- toYaml .Values.controller.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

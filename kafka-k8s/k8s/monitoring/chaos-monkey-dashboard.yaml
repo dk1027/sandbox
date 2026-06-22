@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaos-monkey-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: chaos-monkey
+    app.kubernetes.io/component: dashboard
+data:
+  chaos-monkey-dashboard.json: |
+    {
+      "uid": "chaos-monkey-network",
+      "title": "Chaos Monkey Network Experiment",
+      "tags": ["chaos", "kafka", "network"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "10s",
+      "time": { "from": "now-30m", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Active chaos targets",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "chaos_monkey_active_targets" }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Injected vs recovered faults",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "rate(chaos_monkey_injected_faults_total[1m])" },
+            { "refId": "B", "expr": "rate(chaos_monkey_recovered_faults_total[1m])" }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Producer publish success/failure",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [
+            { "refId": "A", "expr": "rate(messages_published_total{succeed=\"true\"}[1m])" },
+            { "refId": "B", "expr": "rate(messages_published_total{succeed=\"false\"}[1m])" }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "Consumer throughput",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            { "refId": "A", "expr": "rate(messages_consumed_total[1m])" }
+          ]
+        }
+      ]
+    }

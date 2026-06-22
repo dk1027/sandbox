@@ -3,9 +3,12 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Copy the go.mod and source code
-COPY go.mod ./
-COPY main.go ./
+# Copy the go.mod and go.sum files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the rest of the source code
+COPY . .
 
 # Build the Go application
 RUN CGO_ENABLED=0 GOOS=linux go build -o chaos-monkey main.go

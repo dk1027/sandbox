@@ -85,22 +85,51 @@ make teardown
 
 ---
 
+## Quick Start: Chaos Monkey
+
+To run a ready-made chaos demo:
+
+```bash
+./scripts/demo-chaos-monkey.sh
+```
+
+This applies:
+- the Grafana dashboard ConfigMap
+- a producer packet-loss experiment
+- a Kafka broker blackhole experiment
+
+For parameter details and custom examples, see `docs/chaos-monkey-user-guide.md`.
+
 ## Accessing Services & Observability
 
 ### Accessing Grafana
 To access the Grafana dashboards and view the custom metrics, you can use the built-in Make targets:
 
-1. Retrieve your auto-generated admin password:
+For a full walk-through of the chaos experiment fields and examples, see:
+
+- `docs/chaos-monkey-user-guide.md`
+
+1. Deploy the chaos-monkey dashboard into the monitoring namespace:
+```bash
+make deploy-chaos-monkey-dashboard
+```
+
+2. Retrieve your auto-generated admin password:
 ```bash
 make grafana-password
 ```
 
-2. Port-forward the Grafana service to your localhost:
+3. Run the demo script to apply the dashboard and start the example packet-loss / blackhole experiments:
+```bash
+./scripts/demo-chaos-monkey.sh
+```
+
+4. Port-forward the Grafana service to your localhost:
 ```bash
 make grafana-port-forward
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser and log in with username **`admin`** and the password retrieved above.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser and log in with username **`admin`** and the password retrieved above.
 
 ### Accessing Kafka UI
 To explore Kafka topics, view messages, and manage Schema Registry through a web interface:

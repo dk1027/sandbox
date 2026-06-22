@@ -1,0 +1,18 @@
+apiVersion: chaos.dk1027.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: kafka-network-delay
+  namespace: apps
+spec:
+  targetSelectors:
+    namespaces:
+      - apps
+    podSelector:
+      matchLabels:
+        app: producer
+  action: PacketLoss
+  duration: 5m
+  parameters:
+    latencyMs: 0
+    dropPercentage: 10
+    corruptPercentage: 0

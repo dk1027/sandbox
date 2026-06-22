@@ -1,0 +1,37 @@
+apiVersion: chaos.dk1027.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: producer-packet-loss
+  namespace: apps
+spec:
+  targetSelectors:
+    namespaces:
+      - apps
+    podSelector:
+      matchLabels:
+        app: producer
+  action: PacketLoss
+  duration: 5m
+  parameters:
+    latencyMs: 0
+    dropPercentage: 10
+    corruptPercentage: 0
+---
+apiVersion: chaos.dk1027.io/v1alpha1
+kind: ChaosExperiment
+metadata:
+  name: broker-network-blackhole
+  namespace: kafka
+spec:
+  targetSelectors:
+    namespaces:
+      - kafka
+    podSelector:
+      matchLabels:
+        strimzi.io/name: my-cluster-kafka
+  action: NetworkBlackhole
+  duration: 5m
+  parameters:
+    latencyMs: 0
+    dropPercentage: 100
+    corruptPercentage: 0

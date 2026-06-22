@@ -1,6 +1,6 @@
 CLUSTER_NAME ?= kafka-cluster
 
-.PHONY: all cluster apply-limits build setup-strimzi setup-kafka setup-monitoring deploy-apps teardown redeploy-apps build-chaos-monkey deploy-chaos-monkey redeploy-chaos-monkey
+.PHONY: all cluster apply-limits build setup-strimzi setup-kafka setup-monitoring deploy-apps teardown redeploy-apps build-chaos-monkey deploy-chaos-monkey redeploy-chaos-monkey deploy-chaos-monkey-dashboard
 
 all: cluster apply-limits build setup-strimzi setup-kafka setup-monitoring deploy-apps
 
@@ -46,6 +46,9 @@ deploy-apps:
 deploy-chaos-monkey:
 	helm upgrade --install chaos-monkey ./helm/chaos-monkey --namespace apps --create-namespace
 
+deploy-chaos-monkey-dashboard:
+	kubectl apply -f k8s/monitoring/chaos-monkey-dashboard.yaml
+
 teardown:
 	kind delete cluster --name $(CLUSTER_NAME)
 
@@ -53,7 +56,8 @@ redeploy-apps: build deploy-apps
 	kubectl rollout restart deployment -n apps kafka-apps-producer kafka-apps-consumer
 
 redeploy-chaos-monkey: build-chaos-monkey deploy-chaos-monkey
-	kubectl rollout restart deployment -n apps chaos-monkey
+	kubectl rollout restart deployment -n apps chaos-monkey-controller
+	kubectl rollout restart daemonset -n apps chaos-monkey-daemon
 
 grafana-port-forward:
 	@echo "Forwarding Grafana to http://localhost:3000..."

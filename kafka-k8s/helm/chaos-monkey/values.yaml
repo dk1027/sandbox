@@ -3,18 +3,26 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
-replicaCount: 1
+controller:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
-resources: {}
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+daemon:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  metricsPort: 8080
 
 nodeSelector: {}
-
 tolerations: []
-
 affinity: {}
