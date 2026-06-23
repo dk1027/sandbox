@@ -19,14 +19,14 @@ KIND ?= kind
 
 # Install the application stack into an already bootstrapped Kind cluster.
 # Cluster creation, node limits, the TLS registry, and ingress-nginx are owned by
-# ../infra/kind/bootstrap-kind-cluster.sh.
+# infra/kind/bootstrap-kind-cluster.sh.
 all: setup-strimzi setup-kafka setup-monitoring deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard
 
 bootstrap-cluster:
-	../infra/kind/bootstrap-kind-cluster.sh
+	infra/kind/bootstrap-kind-cluster.sh
 
 recreate-cluster:
-	../infra/kind/bootstrap-kind-cluster.sh --recreate
+	infra/kind/bootstrap-kind-cluster.sh --recreate
 
 # Backward-compatible alias. Prefer `make bootstrap-cluster` or
 # `make recreate-cluster` so destructive cluster recreation is explicit.
@@ -35,7 +35,7 @@ cluster: bootstrap-cluster
 # Node resource limits are applied by the bootstrap script. Keep this target as a
 # compatibility shim for old docs/scripts that may still call it.
 apply-limits:
-	@echo "Node resource limits are handled by ../infra/kind/bootstrap-kind-cluster.sh"
+	@echo "Node resource limits are handled by infra/kind/bootstrap-kind-cluster.sh"
 
 build: build-app-images
 
@@ -54,7 +54,7 @@ build-and-push: build-app-images push-app-images build-chaos-monkey-image push-c
 build-chaos-monkey: build-chaos-monkey-image
 
 build-chaos-monkey-image:
-	$(DOCKER) build --platform $(IMAGE_PLATFORM) -t $(REGISTRY)/chaos-monkey:$(IMAGE_TAG) src/chaos_monkey
+	$(DOCKER) build --platform $(IMAGE_PLATFORM) -t $(REGISTRY)/chaos-monkey:$(IMAGE_TAG) src/chaos-monkey
 
 push-chaos-monkey-image:
 	$(DOCKER) push $(REGISTRY)/chaos-monkey:$(IMAGE_TAG)
@@ -66,30 +66,30 @@ setup-strimzi:
 
 setup-kafka:
 	$(KUBECTL) wait --for=condition=established --timeout=60s crd/kafkas.kafka.strimzi.io
-	$(KUBECTL) apply -f k8s/kafka-cluster.yaml -n kafka
-	$(KUBECTL) apply -f k8s/schema-registry.yaml -n kafka
-	$(KUBECTL) apply -f k8s/kafka-ui.yaml -n kafka
+	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-cluster.yaml -n kafka
+	$(KUBECTL) apply -f deploy/manifests/kafka/schema-registry.yaml -n kafka
+	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-ui.yaml -n kafka
 
 setup-monitoring:
 	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	$(HELM) repo update
 	$(HELM) upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace \
-		-f k8s/prometheus-values.yaml
+		-f deploy/values/prometheus-values.yaml
 
 deploy-apps:
-	$(HELM) upgrade --install kafka-apps ./helm/kafka-apps --namespace apps --create-namespace \
+	$(HELM) upgrade --install kafka-apps deploy/charts/kafka-apps --namespace apps --create-namespace \
 		--set producer.image.repository=$(REGISTRY)/kafka-producer \
 		--set producer.image.tag=$(IMAGE_TAG) \
 		--set consumer.image.repository=$(REGISTRY)/kafka-consumer \
 		--set consumer.image.tag=$(IMAGE_TAG)
 
 deploy-chaos-monkey:
-	$(HELM) upgrade --install chaos-monkey ./helm/chaos-monkey --namespace apps --create-namespace \
+	$(HELM) upgrade --install chaos-monkey deploy/charts/chaos-monkey --namespace apps --create-namespace \
 		--set image.repository=$(REGISTRY)/chaos-monkey \
 		--set image.tag=$(IMAGE_TAG)
 
 deploy-chaos-monkey-dashboard:
-	$(KUBECTL) apply -f k8s/monitoring/chaos-monkey-dashboard.yaml
+	$(KUBECTL) apply -f deploy/manifests/monitoring/chaos-monkey-dashboard.yaml
 
 teardown:
 	$(KIND) delete cluster --name $(CLUSTER_NAME)

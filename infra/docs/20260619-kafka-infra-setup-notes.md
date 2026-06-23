@@ -18,7 +18,7 @@ During the deployment of the Kafka/Kubernetes infrastructure, we encountered sev
 
 ## 4. Unsupported Kafka Version
 * **Problem**: The Strimzi operator threw a `NotReady` condition stating: `Unsupported Kafka.spec.kafka.version: 3.7.0. Supported versions are: [4.1.0, 4.1.1, 4.1.2, 4.2.0]`.
-* **Fix**: Bumped the `version` field in `k8s/kafka-cluster.yaml` from `3.7.0` to `4.2.0` (and dropped the `metadataVersion` field to let Strimzi auto-default it), aligning with the operator's supported matrix.
+* **Fix**: Bumped the `version` field in `deploy/manifests/kafka/kafka-cluster.yaml` from `3.7.0` to `4.2.0` (and dropped the `metadataVersion` field to let Strimzi auto-default it), aligning with the operator's supported matrix.
 
 ## 5. Operator CrashLoopBackOff (Feature Gates)
 * **Problem**: The Strimzi Cluster Operator pod entered a `CrashLoopBackOff` state with the error: `Unknown feature gate UseKRaft found in the configuration`. Since KRaft is now strictly the default, the operator actively rejects the legacy feature gate toggles.
@@ -26,4 +26,4 @@ During the deployment of the Kafka/Kubernetes infrastructure, we encountered sev
 
 ## 6. Schema Registry Version Audit
 * **Problem**: During an infrastructure audit, we discovered that the hardcoded Confluent Schema Registry image (`7.5.0`) was severely outdated compared to the latest available Docker Hub tags.
-* **Fix**: Bumped the image in `k8s/schema-registry.yaml` to `confluentinc/cp-schema-registry:8.2.2` and triggered a seamless rolling update via `kubectl apply`.
+* **Fix**: Bumped the image in `deploy/manifests/kafka/schema-registry.yaml` to `confluentinc/cp-schema-registry:8.2.2` and triggered a seamless rolling update via `kubectl apply`.

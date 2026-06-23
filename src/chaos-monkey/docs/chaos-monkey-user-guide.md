@@ -140,7 +140,7 @@ kubectl apply -f broker-network-blackhole.yaml
 If you want a ready-made example, run:
 
 ```bash
-./scripts/demo-chaos-monkey.sh
+src/chaos-monkey/scripts/demo-chaos-monkey.sh
 ```
 
 That script applies:

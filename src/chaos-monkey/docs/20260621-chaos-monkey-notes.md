@@ -14,7 +14,7 @@ Findings:
 The repo design called for kernel-level network disruption. I added an eBPF-based traffic shaper in the daemon path.
 
 Key changes:
-- Added an `EBPFTrafficShaper` abstraction in `src/chaos_monkey/daemon/shaper.go`.
+- Added an `EBPFTrafficShaper` abstraction in `src/chaos-monkey/daemon/shaper.go`.
 - Implemented a TCX-based eBPF program that:
   - resolves the target pod container ID,
   - finds the host-side veth interface index,
@@ -35,10 +35,10 @@ To make the new traffic shaping path work in-cluster:
 
 ### 4) Added repeatable demo assets
 I created a repeatable demo path for a fresh environment:
-- `k8s/demo-chaos-experiments.yaml`
+- `deploy/manifests/chaos/demo-chaos-experiments.yaml`
   - producer packet-loss experiment targeting `app=producer`
   - broker blackhole experiment targeting the Strimzi Kafka broker pods
-- `scripts/demo-chaos-monkey.sh`
+- `src/chaos-monkey/scripts/demo-chaos-monkey.sh`
   - applies the dashboard
   - applies the demo experiments
   - waits for NodeChaosTasks to appear
@@ -46,7 +46,7 @@ I created a repeatable demo path for a fresh environment:
 
 ### 5) Added a Grafana dashboard
 I added a Grafana dashboard ConfigMap so the demo can be observed reproducibly:
-- `k8s/monitoring/chaos-monkey-dashboard.yaml`
+- `deploy/manifests/monitoring/chaos-monkey-dashboard.yaml`
 
 The dashboard is intended to show:
 - active chaos targets
@@ -89,7 +89,7 @@ What I fixed:
 - Re-ran `go test ./...` until the `chaos_monkey` module passed.
 
 ## Verification
-- `go test ./...` passes in `src/chaos_monkey`.
+- `go test ./...` passes in `src/chaos-monkey`.
 - The demo manifest and dashboard manifest are checked in as repeatable files.
 
 ## Notes on the implementation direction

@@ -116,9 +116,9 @@ This bootstrap creates the ingress controller and wildcard/default TLS certifica
 
 Those resources should live with the owner of each app:
 
-- Grafana: kube-prometheus-stack values in `kafka-k8s/k8s/prometheus-values.yaml`
-- Kafka UI: the Kafka UI manifest or a nearby manifest under `kafka-k8s/k8s/`
-- Custom apps: their Helm chart templates under `kafka-k8s/helm/`
+- Grafana: kube-prometheus-stack values in `deploy/values/prometheus-values.yaml`
+- Kafka UI: the Kafka UI manifest under `deploy/manifests/kafka/`
+- Custom apps: their Helm chart templates under `deploy/charts/`
 
 Each app should define its own host, for example:
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
 info() {
   printf '\n[demo] %s\n' "$*"
@@ -26,10 +26,10 @@ wait_for_prefix() {
 }
 
 info "Applying Grafana dashboard"
-kubectl apply -f "$ROOT_DIR/k8s/monitoring/chaos-monkey-dashboard.yaml"
+kubectl apply -f "$REPO_ROOT/deploy/manifests/monitoring/chaos-monkey-dashboard.yaml"
 
 info "Applying producer + broker chaos experiments"
-kubectl apply -f "$ROOT_DIR/k8s/demo-chaos-experiments.yaml"
+kubectl apply -f "$REPO_ROOT/deploy/manifests/chaos/demo-chaos-experiments.yaml"
 
 info "Waiting for the controller to create node-local tasks"
 wait_for_prefix apps producer-packet-loss-
