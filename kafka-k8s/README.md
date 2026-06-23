@@ -124,12 +124,17 @@ make grafana-password
 ./scripts/demo-chaos-monkey.sh
 ```
 
-4. Port-forward the Grafana service to your localhost:
+4. If the Kind cluster was created with `../infra/kind/setup-kind-registry.sh`, open Grafana directly from another machine on the LAN:
+```text
+http://ryzen.local:3000
+```
+
+Alternatively, port-forward the Grafana service to your localhost:
 ```bash
 make grafana-port-forward
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser and log in with username **`admin`** and the password retrieved above.
+5. Log in with username **`admin`** and the password retrieved above.
 
 ### Accessing Kafka UI
 To explore Kafka topics, view messages, and manage Schema Registry through a web interface:

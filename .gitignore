@@ -1,0 +1,4 @@
+# Local generated artifacts and secrets
+/generated/*
+!/generated/.gitignore
+/infra/kind/certs/
