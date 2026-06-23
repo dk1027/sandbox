@@ -13,11 +13,6 @@ prometheus:
               storage: 10Gi
 
 grafana:
-  service:
-    type: NodePort
-    port: 80
-    targetPort: 3000
-    nodePort: 30000
   persistence:
     enabled: true
     type: pvc

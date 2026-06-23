@@ -1,150 +1,143 @@
-# Kind cluster with TLS local registry
+# Kind cluster bootstrap
 
-This directory contains setup automation for the Linux test machine.
+This directory contains the bootstrap script for the Linux test machine.
 
 Target workflow:
 
 - MacBook/dev machine builds images.
-- MacBook pushes images to `ryzen.local:5001`.
-- This Linux host runs a Docker registry with TLS.
+- MacBook pushes images to the TLS registry at `ryzen.local:5001`.
+- This Linux host runs a Docker registry with TLS and persistent host-mounted storage.
 - The Kind cluster on this Linux host pulls those same image names.
-- Helm deploys charts into the Kind cluster using `image.repository=ryzen.local:5001/...`.
+- ingress-nginx runs inside Kind and exposes application HTTP traffic on HTTPS port `443` only.
+- Application-specific Ingress objects live with the app Helm chart or Kubernetes manifest that owns the service.
 
 ## Setup
 
 From the repository root on the Linux test machine:
 
 ```bash
-infra/kind/setup-kind-registry.sh --recreate
+infra/kind/bootstrap-kind-cluster.sh --recreate
 ```
 
 `--recreate` is required when a Kind cluster with the same name already exists. It deletes the existing Kind cluster and all cluster state before creating the new one.
 
 Defaults:
 
-- Cluster name: `kafka-cluster`
+- Cluster name: `dev-cluster`
 - Registry host: `ryzen.local`
 - Registry port: `5001`
 - Registry container: `kind-registry`
-- Grafana host URL: `http://ryzen.local:3000`
-- Grafana Kind NodePort: `30000`
+- Ingress domain: `ryzen.local`
+- Ingress host port: `443`
 - Worker nodes: `4`
-- Generated artifacts: `generated/kind-registry/`
-- CA/cert output: `generated/kind-registry/certs/`
-- Registry image data: `generated/kind-registry/registry-data/`
-- Kind node containerd registry config: `generated/kind-registry/containerd-certs/`
+- Node resource limits: `1` CPU, `6g` memory, `12g` memory+swap per Kind node container
+- Generated artifacts: `generated/kind-cluster/`
+- Registry CA/cert output: `generated/kind-cluster/registry/certs/`
+- Ingress CA/cert output: `generated/kind-cluster/ingress/certs/`
+- Registry image data: `generated/kind-cluster/registry/data/`
+- Kind node containerd registry config: `generated/kind-cluster/containerd-certs/`
 
 Environment overrides:
 
 ```bash
-CLUSTER_NAME=kafka-cluster \
+CLUSTER_NAME=dev-cluster \
 REGISTRY_HOST=ryzen.local \
 REGISTRY_PORT=5001 \
-GRAFANA_HOST_PORT=3000 \
-GRAFANA_NODE_PORT=30000 \
+INGRESS_DOMAIN=ryzen.local \
+INGRESS_HTTPS_PORT=443 \
 NODE_COUNT=4 \
-infra/kind/setup-kind-registry.sh --recreate
+NODE_CPUS=1 \
+NODE_MEMORY=6g \
+NODE_MEMORY_SWAP=12g \
+infra/kind/bootstrap-kind-cluster.sh --recreate
 ```
 
 ## Generated files and git safety
 
 All generated certificates, private keys, registry data, and Kind containerd trust config are written under the repository-level `generated/` directory.
 
-`generated/.gitignore` ignores everything under that directory except the `.gitignore` file itself. This keeps sensitive local CA/private-key material out of normal source control operations.
+`generated/.gitignore` ignores everything under that directory except the `.gitignore` file itself. The repository `.gitignore` also ignores `/generated/*` and the old `/infra/kind/certs/` location.
 
-Do not commit files from `generated/kind-registry/`.
+Do not commit files from `generated/kind-cluster/`.
+
+## What the bootstrap script does
+
+1. Generates a local CA and TLS certificate for the registry.
+2. Writes containerd registry trust files for Kind nodes.
+3. Generates a separate local CA and wildcard certificate for ingress hosts such as `grafana.ryzen.local`.
+4. Starts a TLS-enabled `registry:3` container published as `0.0.0.0:5001` with host-mounted certs and registry data.
+5. Creates a Kind cluster with:
+   - mounted containerd registry trust config
+   - an `ingress-ready=true` label on the control-plane node for ingress-nginx scheduling
+   - HTTPS-only ingress host port mapping: host `443` -> Kind control-plane `443`
+6. Applies Docker resource limits to each Kind node container.
+7. Connects the registry container to the Docker `kind` network.
+8. Publishes the standard `local-registry-hosting` ConfigMap in `kube-public`.
+9. Installs ingress-nginx using the Kind provider manifest.
+10. Configures ingress-nginx with the generated wildcard TLS certificate as its default HTTPS certificate.
 
 ## Persistence model
 
-The registry container does not receive a one-time copy of certificates. It mounts host paths instead:
+The registry container mounts host paths instead of receiving one-time copied files:
 
-- `generated/kind-registry/certs/` -> `/certs:ro`
-- `generated/kind-registry/registry-data/` -> `/var/lib/registry`
+- `generated/kind-cluster/registry/certs/` -> `/certs:ro`
+- `generated/kind-cluster/registry/data/` -> `/var/lib/registry`
 
-The Kind node containers also do not receive a one-time `docker cp` of trust files. The generated containerd certs directory is mounted into every Kind node with Kind `extraMounts`:
+The Kind node containers also mount the generated containerd certs directory:
 
-- `generated/kind-registry/containerd-certs/` -> `/etc/containerd/certs.d:ro`
+- `generated/kind-cluster/containerd-certs/` -> `/etc/containerd/certs.d:ro`
 
 That means the registry TLS material, registry image data, and node containerd registry trust config survive container restarts. Recreating the Kind cluster still recreates node containers, but the same host-mounted generated files are reused.
 
-## Grafana access from the MacBook
-
-The setup script maps the Kind control-plane container port `30000` to this host's port `3000` on `0.0.0.0`. The Prometheus Helm values configure Grafana as a NodePort service on `30000`.
-
-After running `make setup-monitoring`, Grafana should be reachable from the MacBook at:
-
-```text
-http://ryzen.local:3000
-```
-
-This avoids a long-running `kubectl port-forward` process for Grafana. The existing `make grafana-password` target still prints the admin password.
-
 ## TLS trust on the MacBook
 
-The script generates a local CA at:
+Registry pushes from Docker need the registry CA:
 
 ```text
-generated/kind-registry/certs/ca.crt
+generated/kind-cluster/registry/certs/ca.crt
 ```
 
-Copy that CA certificate to the MacBook and trust it for Docker/Desktop. A typical Docker Desktop client-side trust path is:
+A typical Docker Desktop client-side trust path is:
 
 ```bash
 mkdir -p ~/.docker/certs.d/ryzen.local:5001
 cp ca.crt ~/.docker/certs.d/ryzen.local:5001/ca.crt
 ```
 
-You may also need to add the CA to macOS Keychain or restart Docker Desktop, depending on the Docker Desktop version and settings. After trust is configured, the MacBook should be able to push to:
+Browser access to ingress hosts needs the ingress CA trusted in macOS/browser trust settings:
 
 ```text
-ryzen.local:5001
+generated/kind-cluster/ingress/certs/ca.crt
 ```
 
-Example MacBook image build/push:
+## Application ingress ownership
 
-```bash
-docker build --platform linux/amd64 \
-  -t ryzen.local:5001/chaos-monkey:dev \
-  kafka-k8s/src/chaos_monkey
+This bootstrap creates the ingress controller and wildcard/default TLS certificate. It does not create Grafana, Kafka UI, Prometheus, or app-specific Ingress resources.
 
-docker push ryzen.local:5001/chaos-monkey:dev
-```
+Those resources should live with the owner of each app:
 
-Use `--platform linux/amd64` from Apple Silicon Macs because the Kind nodes on the Linux test host are amd64.
+- Grafana: kube-prometheus-stack values in `kafka-k8s/k8s/prometheus-values.yaml`
+- Kafka UI: the Kafka UI manifest or a nearby manifest under `kafka-k8s/k8s/`
+- Custom apps: their Helm chart templates under `kafka-k8s/helm/`
 
-## Helm deploy example
+Each app should define its own host, for example:
 
-Run Helm on this Linux test machine:
+- `https://grafana.ryzen.local`
+- `https://kafka-ui.ryzen.local`
 
-```bash
-cd kafka-k8s
-
-helm upgrade --install chaos-monkey ./helm/chaos-monkey \
-  --namespace apps \
-  --create-namespace \
-  --set image.repository=ryzen.local:5001/chaos-monkey \
-  --set image.tag=dev \
-  --set image.pullPolicy=Always
-
-kubectl rollout status deployment/chaos-monkey-controller -n apps
-kubectl rollout status daemonset/chaos-monkey-daemon -n apps
-```
-
-For regular development, prefer unique tags such as the git SHA instead of `dev`/`latest`.
-
-## What the setup script does
-
-1. Generates a local CA and registry server certificate under `generated/kind-registry/certs/`.
-2. Writes containerd registry trust files under `generated/kind-registry/containerd-certs/`.
-3. Starts a TLS-enabled `registry:3` container published as `0.0.0.0:5001` with host-mounted certs and registry data.
-4. Creates a Kind cluster with containerd registry config-dir support and host-mounted registry trust config.
-5. Maps `ryzen.local:3000` on the host to Grafana's Kind NodePort `30000`.
-6. Connects the registry container to the Docker `kind` network.
-7. Publishes the standard `local-registry-hosting` ConfigMap in `kube-public`.
+Because the bootstrap exposes only port `443`, app Ingress resources should be configured for HTTPS hosts. They can use the ingress-nginx default wildcard certificate installed by bootstrap, or define their own namespace-local TLS secret if an app needs a distinct certificate.
 
 ## Verification
 
-After trusting the CA locally on the Linux test host if needed, push a small test image:
+After bootstrap:
+
+```bash
+kubectl get pods -n ingress-nginx
+kubectl get svc -n ingress-nginx
+kubectl get configmap local-registry-hosting -n kube-public -o yaml
+```
+
+To verify the registry after trusting the registry CA locally:
 
 ```bash
 docker pull busybox:latest
@@ -159,5 +152,3 @@ kubectl run registry-test \
 kubectl wait --for=condition=Ready pod/registry-test --timeout=60s
 kubectl delete pod registry-test
 ```
-
-If `docker push` fails with a certificate error, the local Docker daemon does not trust `generated/kind-registry/certs/ca.crt` yet.

@@ -1,16 +1,16 @@
 # Local Kubernetes Kafka Environment
 
-Welcome! This project provisions a complete local 5-node Kubernetes (`kind`) cluster containing a 3-broker Strimzi Kafka cluster, Confluent Schema Registry, a full Prometheus/Grafana observability stack, and custom Python test applications.
+Welcome! This project deploys a Kafka test stack into the shared Kind development cluster: a 3-broker Strimzi Kafka cluster, Confluent Schema Registry, a full Prometheus/Grafana observability stack, and custom test applications.
 
-Everything is managed via Infrastructure as Code principles using a single entrypoint `Makefile`.
+Cluster bootstrap is owned by `../infra/kind/bootstrap-kind-cluster.sh`. The `Makefile` in this directory installs and updates the Kafka/application workloads after the cluster exists.
 
 ---
 
 ## Directory Layout
 
-* **`Makefile`**: The central orchestrator for building images, configuring the cluster, and deploying resources.
+* **`Makefile`**: Workload orchestration for image build/push and Kubernetes/Helm deploys.
 * **`k8s/`**: 
-  * `kind-config.yaml`: Configuration for the 5-node (1 control-plane, 4 workers) Kind cluster.
+  * `kind-config.yaml`: Legacy Kind config for ad-hoc local clusters. The primary bootstrap path is `../infra/kind/bootstrap-kind-cluster.sh`.
   * `kafka-cluster.yaml`: Strimzi CRD manifests using the modern KRaft architecture and `KafkaNodePool`s.
   * `schema-registry.yaml`: A standard deployment and service for Confluent Schema Registry.
 * **`src/`**: 
@@ -33,32 +33,43 @@ Make sure you have the following CLI tools installed:
 - `helm`
 
 ### Spin Up
-To spin up the entire environment from scratch, simply run:
+First bootstrap the shared Kind development cluster from the repository root:
+```bash
+infra/kind/bootstrap-kind-cluster.sh --recreate
+```
+
+Then install the Kafka/application stack from this directory:
 ```bash
 make all
 ```
 
 **What this does under the hood:**
-1. Provisions the Kind cluster (`make cluster`).
-2. Applies strict 1 CPU and 6GB memory resource limits per node using Docker constraints (`make apply-limits`).
-3. Builds the Python test applications and loads their images directly into the local Kind registry (`make build`).
-4. Installs the Strimzi Operator via Helm (`make setup-strimzi`).
-5. Installs the KRaft-based Kafka cluster and Schema Registry (`make setup-kafka`).
-6. Installs the `kube-prometheus-stack` to enable cluster-wide metric scraping (`make setup-monitoring`).
-7. Deploys the Python apps using the local Helm chart (`make deploy-apps`).
+1. Installs the Strimzi Operator via Helm (`make setup-strimzi`).
+2. Installs the KRaft-based Kafka cluster, Schema Registry, and Kafka UI (`make setup-kafka`).
+3. Installs the `kube-prometheus-stack` to enable cluster-wide metric scraping (`make setup-monitoring`).
+4. Deploys the Python producer/consumer apps using the local Helm chart (`make deploy-apps`).
+5. Deploys the Chaos Monkey controller/daemonset and dashboard (`make deploy-chaos-monkey`, `make deploy-chaos-monkey-dashboard`).
+
+`make all` assumes the cluster already exists and that the referenced application images are available in the registry. Cluster creation, node resource limits, the TLS registry, and ingress-nginx are handled by the bootstrap script.
 
 ---
 
 ## Development Workflow
 
 ### Making a Code Change and Redeploying
-If you modify the Python application code in `src/producer/producer.py` or `src/consumer/consumer.py`, you can quickly rebuild the Docker images and trigger a rolling update of the deployments by running:
+Images default to the TLS registry at `ryzen.local:5001` and tag `dev`. Override with `REGISTRY` and `IMAGE_TAG` as needed:
+
+```bash
+make build-and-push IMAGE_TAG=$(git rev-parse --short HEAD)
+```
+
+If you modify the Python application code in `src/producer/producer.py` or `src/consumer/consumer.py`, you can rebuild, push, deploy, and restart the deployments by running:
 
 ```bash
 make redeploy-apps
 ```
 
-This target builds the latest images, loads them into the kind nodes, triggers the helm upgrade, and gracefully restarts the application pods so they pull the updated images.
+This target builds images for `linux/amd64`, pushes them to `$(REGISTRY)`, runs the Helm upgrade, and restarts the application pods so they pull the updated tag.
 
 Similarly, if you modify the Go application code in `src/chaos_monkey/main.go`, you can rebuild and roll out updates using:
 
@@ -69,7 +80,8 @@ make redeploy-chaos-monkey
 Or run the build and deploy steps individually:
 
 ```bash
-make build-chaos-monkey
+make build-chaos-monkey-image
+make push-chaos-monkey-image
 make deploy-chaos-monkey
 ```
 
@@ -124,17 +136,14 @@ make grafana-password
 ./scripts/demo-chaos-monkey.sh
 ```
 
-4. If the Kind cluster was created with `../infra/kind/setup-kind-registry.sh`, open Grafana directly from another machine on the LAN:
-```text
-http://ryzen.local:3000
-```
-
-Alternatively, port-forward the Grafana service to your localhost:
+4. Port-forward the Grafana service to your localhost:
 ```bash
 make grafana-port-forward
 ```
 
-5. Log in with username **`admin`** and the password retrieved above.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser and log in with username **`admin`** and the password retrieved above.
+
+If you expose Grafana through ingress later, that Ingress configuration should live with the monitoring Helm values rather than in the Kind bootstrap script.
 
 ### Accessing Kafka UI
 To explore Kafka topics, view messages, and manage Schema Registry through a web interface:
