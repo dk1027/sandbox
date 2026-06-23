@@ -136,24 +136,32 @@ make grafana-password
 ./scripts/demo-chaos-monkey.sh
 ```
 
-4. Port-forward the Grafana service to your localhost:
+4. If the Kind cluster was bootstrapped with ingress-nginx, open Grafana at:
+```text
+https://grafana.ryzen.local
+```
+
+Alternatively, port-forward the Grafana service to your localhost:
 ```bash
 make grafana-port-forward
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser and log in with username **`admin`** and the password retrieved above.
-
-If you expose Grafana through ingress later, that Ingress configuration should live with the monitoring Helm values rather than in the Kind bootstrap script.
+5. Log in with username **`admin`** and the password retrieved above.
 
 ### Accessing Kafka UI
 To explore Kafka topics, view messages, and manage Schema Registry through a web interface:
 
-1. Port-forward the Kafka UI service:
+1. If the Kind cluster was bootstrapped with ingress-nginx, open Kafka UI at:
+```text
+https://kafka-ui.ryzen.local
+```
+
+Alternatively, port-forward the Kafka UI service:
 ```bash
 make kafka-ui-port-forward
 ```
 
-2. Open [http://localhost:8080](http://localhost:8080) in your browser.
+2. If using port-forward, open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ### Viewing App Logs
 If you want to debug the test applications directly via standard output:

@@ -13,6 +13,19 @@ prometheus:
               storage: 10Gi
 
 grafana:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.ryzen.local
+    path: /
+    tls:
+      - hosts:
+          - grafana.ryzen.local
+  grafana.ini:
+    server:
+      domain: grafana.ryzen.local
+      root_url: https://grafana.ryzen.local/
   persistence:
     enabled: true
     type: pvc
