@@ -27,6 +27,8 @@ Defaults:
 - Registry host: `ryzen.local`
 - Registry port: `5001`
 - Registry container: `kind-registry`
+- Kubernetes API endpoint: `https://ryzen.local:6443`
+- Kubernetes API host bind: `0.0.0.0:6443`
 - Ingress domain: `ryzen.local`
 - Ingress host port: `443`
 - Worker nodes: `4`
@@ -43,6 +45,9 @@ Environment overrides:
 CLUSTER_NAME=dev-cluster \
 REGISTRY_HOST=ryzen.local \
 REGISTRY_PORT=5001 \
+API_SERVER_ADDRESS=0.0.0.0 \
+API_SERVER_PORT=6443 \
+API_SERVER_CERT_SANS=ryzen.local,192.168.1.73 \
 INGRESS_DOMAIN=ryzen.local \
 INGRESS_HTTPS_PORT=443 \
 NODE_COUNT=4 \
@@ -68,6 +73,8 @@ Do not commit files from `generated/kind-cluster/`.
 4. Starts a TLS-enabled `registry:3` container published as `0.0.0.0:5001` with host-mounted certs and registry data.
 5. Creates a Kind cluster with:
    - mounted containerd registry trust config
+   - Kubernetes API exposed as `0.0.0.0:6443` on the Linux host
+   - API server certificate SANs for `ryzen.local` and `192.168.1.73`
    - an `ingress-ready=true` label on the control-plane node for ingress-nginx scheduling
    - HTTPS-only ingress host port mapping: host `443` -> Kind control-plane `443`
 6. Applies Docker resource limits to each Kind node container.
@@ -151,4 +158,17 @@ kubectl run registry-test \
 
 kubectl wait --for=condition=Ready pod/registry-test --timeout=60s
 kubectl delete pod registry-test
+```
+
+## MacBook kubectl access
+
+After recreating the cluster, copy the kubeconfig to the MacBook and rewrite the
+server URL to the LAN endpoint:
+
+```bash
+mkdir -p ~/.kube/kind-ryzen
+ssh ltse@ryzen.local 'kubectl config view --minify --raw' > ~/.kube/kind-ryzen/dev-cluster.yaml
+kubectl --kubeconfig ~/.kube/kind-ryzen/dev-cluster.yaml \
+  config set-cluster kind-dev-cluster --server=https://ryzen.local:6443
+KUBECONFIG=~/.kube/kind-ryzen/dev-cluster.yaml kubectl get nodes
 ```

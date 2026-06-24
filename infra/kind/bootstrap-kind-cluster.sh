@@ -16,6 +16,9 @@ CLUSTER_NAME="${CLUSTER_NAME:-dev-cluster}"
 REGISTRY_NAME="${REGISTRY_NAME:-kind-registry}"
 REGISTRY_HOST="${REGISTRY_HOST:-ryzen.local}"
 REGISTRY_PORT="${REGISTRY_PORT:-5001}"
+API_SERVER_ADDRESS="${API_SERVER_ADDRESS:-0.0.0.0}"
+API_SERVER_PORT="${API_SERVER_PORT:-6443}"
+API_SERVER_CERT_SANS="${API_SERVER_CERT_SANS:-${REGISTRY_HOST},192.168.1.73}"
 INGRESS_HTTPS_PORT="${INGRESS_HTTPS_PORT:-443}"
 INGRESS_DOMAIN="${INGRESS_DOMAIN:-ryzen.local}"
 NODE_COUNT="${NODE_COUNT:-4}"
@@ -43,6 +46,9 @@ Environment overrides:
   REGISTRY_NAME            default: kind-registry
   REGISTRY_HOST            default: ryzen.local
   REGISTRY_PORT            default: 5001
+  API_SERVER_ADDRESS       default: 0.0.0.0
+  API_SERVER_PORT          default: 6443
+  API_SERVER_CERT_SANS     default: REGISTRY_HOST,192.168.1.73
   INGRESS_DOMAIN           default: ryzen.local
   INGRESS_HTTPS_PORT       default: 443
   NODE_COUNT               default: 4 worker nodes
@@ -228,14 +234,39 @@ EOF
 EOF
 }
 
+append_api_server_cert_sans() {
+  local sans_csv="$1"
+  local san
+
+  IFS=',' read -ra sans <<<"${sans_csv}"
+  for san in "${sans[@]}"; do
+    san="${san#${san%%[![:space:]]*}}"
+    san="${san%${san##*[![:space:]]}}"
+    if [[ -n "${san}" ]]; then
+      echo "            - ${san}" >>"${KIND_CONFIG}"
+    fi
+  done
+}
+
 cat >"${KIND_CONFIG}" <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ${CLUSTER_NAME}
+networking:
+  apiServerAddress: "${API_SERVER_ADDRESS}"
+  apiServerPort: ${API_SERVER_PORT}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry]
     config_path = "/etc/containerd/certs.d"
+kubeadmConfigPatches:
+- |
+  kind: ClusterConfiguration
+  apiServer:
+    certSANs:
+EOF
+append_api_server_cert_sans "${API_SERVER_CERT_SANS}"
+cat >>"${KIND_CONFIG}" <<EOF
 nodes:
 EOF
 
@@ -291,6 +322,7 @@ cat <<EOF
 Kind cluster bootstrap is complete.
 
 Cluster name:                 ${CLUSTER_NAME}
+Kubernetes API endpoint:      https://${REGISTRY_HOST}:${API_SERVER_PORT}
 Registry endpoint:            ${REGISTRY_HOST}:${REGISTRY_PORT}
 Ingress HTTPS endpoint:        https://*.${INGRESS_DOMAIN} via ${REGISTRY_HOST}:${INGRESS_HTTPS_PORT}
 Generated artifacts:           ${GENERATED_DIR}
