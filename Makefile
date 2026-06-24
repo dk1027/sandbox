@@ -11,8 +11,8 @@ KIND ?= kind
 
 .PHONY: all \
 	bootstrap-cluster recreate-cluster cluster apply-limits teardown \
-	build build-app-images push push-app-images build-and-push \
-	build-chaos-monkey build-chaos-monkey-image push-chaos-monkey-image \
+	build push buildpush \
+	build-apps push-apps build-chaos-monkey push-chaos-monkey \
 	setup-strimzi setup-kafka setup-monitoring deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard \
 	redeploy-apps redeploy-chaos-monkey \
 	grafana-port-forward grafana-password kafka-ui-port-forward
@@ -37,27 +37,26 @@ cluster: bootstrap-cluster
 apply-limits:
 	@echo "Node resource limits are handled by infra/kind/bootstrap-kind-cluster.sh"
 
-build: build-app-images
+build:
+	$(MAKE) -C src build
 
-build-app-images:
-	$(DOCKER) build --platform $(IMAGE_PLATFORM) -t $(REGISTRY)/kafka-producer:$(IMAGE_TAG) src/producer
-	$(DOCKER) build --platform $(IMAGE_PLATFORM) -t $(REGISTRY)/kafka-consumer:$(IMAGE_TAG) src/consumer
+push:
+	$(MAKE) -C src push
 
-push: push-app-images push-chaos-monkey-image
+buildpush:
+	$(MAKE) -C src buildpush
 
-push-app-images:
-	$(DOCKER) push $(REGISTRY)/kafka-producer:$(IMAGE_TAG)
-	$(DOCKER) push $(REGISTRY)/kafka-consumer:$(IMAGE_TAG)
+build-apps:
+	$(MAKE) -C src build-apps
 
-build-and-push: build-app-images push-app-images build-chaos-monkey-image push-chaos-monkey-image
+push-apps:
+	$(MAKE) -C src push-apps
 
-build-chaos-monkey: build-chaos-monkey-image
+build-chaos-monkey:
+	$(MAKE) -C src build-chaos-monkey
 
-build-chaos-monkey-image:
-	$(DOCKER) build --platform $(IMAGE_PLATFORM) -t $(REGISTRY)/chaos-monkey:$(IMAGE_TAG) src/chaos-monkey
-
-push-chaos-monkey-image:
-	$(DOCKER) push $(REGISTRY)/chaos-monkey:$(IMAGE_TAG)
+push-chaos-monkey:
+	$(MAKE) -C src push-chaos-monkey
 
 setup-strimzi:
 	$(HELM) repo add strimzi https://strimzi.io/charts/
@@ -94,10 +93,10 @@ deploy-chaos-monkey-dashboard:
 teardown:
 	$(KIND) delete cluster --name $(CLUSTER_NAME)
 
-redeploy-apps: build-app-images push-app-images deploy-apps
+redeploy-apps: build-apps push-apps deploy-apps
 	$(KUBECTL) rollout restart deployment -n apps kafka-apps-producer kafka-apps-consumer
 
-redeploy-chaos-monkey: build-chaos-monkey-image push-chaos-monkey-image deploy-chaos-monkey
+redeploy-chaos-monkey: build-chaos-monkey push-chaos-monkey deploy-chaos-monkey
 	$(KUBECTL) rollout restart deployment -n apps chaos-monkey-controller
 	$(KUBECTL) rollout restart daemonset -n apps chaos-monkey-daemon
 
