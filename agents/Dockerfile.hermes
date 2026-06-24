@@ -9,6 +9,8 @@ ARG GID=1000
 # pages, so the agent has modern toolchains for coding and tests.
 ARG PYTHON_VERSION=3.14.6
 ARG GO_VERSION=1.26.4
+ARG KUBECTL_VERSION=stable
+ARG HELM_VERSION=latest
 
 USER root
 
@@ -61,6 +63,27 @@ RUN set -eux; \
     rm -f /tmp/go.tgz; \
     ln -sf /usr/local/go/bin/go /usr/local/bin/go; \
     ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+# Install Kubernetes and Helm CLIs so the container can use the host kubeconfig.
+RUN set -eux; \
+    case "$(uname -m)" in \
+      x86_64) k8s_arch=amd64; helm_arch=amd64 ;; \
+      aarch64|arm64) k8s_arch=arm64; helm_arch=arm64 ;; \
+      *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+    esac; \
+    if [ "${KUBECTL_VERSION}" = stable ]; then \
+      KUBECTL_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"; \
+    fi; \
+    curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${k8s_arch}/kubectl"; \
+    chmod +x /usr/local/bin/kubectl; \
+    if [ "${HELM_VERSION}" = latest ]; then \
+      HELM_VERSION="$(curl -fsSL https://api.github.com/repos/helm/helm/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)"; \
+    fi; \
+    curl -fsSLo /tmp/helm.tgz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${helm_arch}.tar.gz"; \
+    tar -xzf /tmp/helm.tgz -C /tmp; \
+    mv "/tmp/linux-${helm_arch}/helm" /usr/local/bin/helm; \
+    chmod +x /usr/local/bin/helm; \
+    rm -rf /tmp/helm.tgz "/tmp/linux-${helm_arch}"
 
 # Repoint the existing hermes user at the host UID and keep its home directory in sync.
 RUN set -eux; \
