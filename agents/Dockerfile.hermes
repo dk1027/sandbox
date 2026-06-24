@@ -1,0 +1,20 @@
+FROM ubuntu:24.04
+
+# These build args let us create a container user that matches the host UID/GID,
+# so files written into bind mounts are owned by the same user on the host.
+ARG UID=1000
+ARG GID=1000
+
+# Create a real "hermes" user and group inside the image instead of relying on
+# a numeric UID only, which avoids the "I have no name!" shell prompt.
+RUN set -eux; \
+    groupadd -o -g "$GID" hermes; \
+    useradd -o -m -u "$UID" -g "$GID" -s /bin/bash hermes
+
+ENV HOME=/home/hermes
+
+WORKDIR /home/hermes
+
+USER hermes
+
+CMD ["sleep", "infinity"]
