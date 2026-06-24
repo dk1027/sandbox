@@ -1,20 +1,77 @@
-FROM ubuntu:24.04
+FROM nousresearch/hermes-agent:latest
 
-# These build args let us create a container user that matches the host UID/GID,
-# so files written into bind mounts are owned by the same user on the host.
+# Keep the container user aligned with the host so files in bind mounts stay
+# owned by the same UID/GID on your Mac.
 ARG UID=1000
 ARG GID=1000
 
-# Create a real "hermes" user and group inside the image instead of relying on
-# a numeric UID only, which avoids the "I have no name!" shell prompt.
-RUN set -eux; \
-    groupadd -o -g "$GID" hermes; \
-    useradd -o -m -u "$UID" -g "$GID" -s /bin/bash hermes
+# Pin to the current stable releases from the upstream Python and Go download
+# pages, so the agent has modern toolchains for coding and tests.
+ARG PYTHON_VERSION=3.14.6
+ARG GO_VERSION=1.26.4
 
-ENV HOME=/home/hermes
+USER root
+
+# Install the build tools and libraries needed to compile Python from source.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      libbz2-dev \
+      libc6-dev \
+      libffi-dev \
+      libgdbm-dev \
+      liblzma-dev \
+      libncursesw5-dev \
+      libreadline-dev \
+      libsqlite3-dev \
+      libssl-dev \
+      tk-dev \
+      uuid-dev \
+      zlib1g-dev; \
+    rm -rf /var/lib/apt/lists/*
+
+# Build and install the pinned Python release under /usr/local.
+RUN set -eux; \
+    mkdir -p /tmp/python-src; \
+    curl -fsSLo /tmp/Python.tgz "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz"; \
+    tar -xzf /tmp/Python.tgz -C /tmp/python-src --strip-components=1; \
+    cd /tmp/python-src; \
+    ./configure --prefix=/usr/local --with-ensurepip=install; \
+    make -j"$(nproc)"; \
+    make altinstall; \
+    rm -rf /tmp/python-src /tmp/Python.tgz; \
+    ln -sf /usr/local/bin/python3.14 /usr/local/bin/python3; \
+    ln -sf /usr/local/bin/python3.14 /usr/local/bin/python; \
+    ln -sf /usr/local/bin/pip3.14 /usr/local/bin/pip3; \
+    ln -sf /usr/local/bin/pip3.14 /usr/local/bin/pip
+
+# Download and unpack the pinned Go toolchain for the current CPU architecture.
+RUN set -eux; \
+    case "$(uname -m)" in \
+      x86_64) go_arch=amd64 ;; \
+      aarch64|arm64) go_arch=arm64 ;; \
+      *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSLo /tmp/go.tgz "https://go.dev/dl/go${GO_VERSION}.linux-${go_arch}.tar.gz"; \
+    tar -xzf /tmp/go.tgz -C /usr/local; \
+    rm -f /tmp/go.tgz; \
+    ln -sf /usr/local/go/bin/go /usr/local/bin/go; \
+    ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+# Repoint the existing hermes user at the host UID and keep its home directory in sync.
+RUN set -eux; \
+    usermod -o -u "${UID}" -d /home/hermes -m -s /bin/bash hermes; \
+    chown -R "${UID}:${GID}" /home/hermes
+
+ENV HOME=/home/hermes \
+    PATH=/usr/local/go/bin:/usr/local/bin:${PATH}
 
 WORKDIR /home/hermes
 
 USER hermes
 
-CMD ["sleep", "infinity"]
+CMD ["bash"]

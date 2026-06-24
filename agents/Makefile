@@ -1,16 +1,12 @@
-# hermes:
-# 	docker build -f Dockerfile.hermes -t hermes \
-# 		--build-arg UID=$$(id -u) \
-# 		--build-arg GID=$$(id -g) \
-# 		.
-# 	docker run -d \
-# 		--name hermes \
-# 		--add-host=host.docker.internal:host-gateway \
-# 		-v "$$HOME/.hermes:/home/hermes/.hermes" \
-# 		-v "$$HOME/github.com:/home/hermes/github.com" \
-# 		hermes
-
 hermes:
+	docker build -f Dockerfile.hermes -t hermes \
+		--build-arg UID=$$(id -u) \
+		--build-arg GID=$$(id -g) \
+		.
 	docker run -it --rm \
-		-v ~/.hermes:/opt/data \
-		nousresearch/hermes-agent bash
+		--name hermes \
+		--add-host=host.docker.internal:host-gateway \
+		-v "$$HOME/.hermes:/opt/data" \
+		-v "$$HOME/github.com/dk1027/sandbox:/home/hermes/github.com/dk1027/sandbox" \
+		-w /home/hermes/github.com/dk1027/sandbox \
+		hermes
