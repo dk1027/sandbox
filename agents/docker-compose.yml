@@ -1,0 +1,56 @@
+services:
+  hermes:
+    build:
+      context: .
+      dockerfile: Dockerfile.hermes
+      args:
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    image: hermes
+    container_name: hermes
+    depends_on:
+      - buildkitd
+    entrypoint:
+      - sleep
+      - infinity
+    stdin_open: true
+    tty: true
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    environment:
+      BUILDKIT_HOST: tcp://buildkitd:1234
+      KUBECONFIG: /home/hermes/.kube/config
+    volumes:
+      - type: bind
+        source: ${HOME}/.kube
+        target: /home/hermes/.kube
+        read_only: true
+      - type: bind
+        source: ${HOME}/.hermes
+        target: /opt/data
+      - type: bind
+        source: ${HOME}/github.com/dk1027/sandbox
+        target: /home/hermes/github.com/dk1027/sandbox
+    working_dir: /home/hermes/github.com/dk1027/sandbox
+
+  buildkitd:
+    image: moby/buildkit:rootless
+    container_name: buildkitd
+    command:
+      - --config
+      - /etc/buildkit/buildkitd.toml
+      - --addr
+      - tcp://0.0.0.0:1234
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+      - systempaths=unconfined
+    volumes:
+      - type: bind
+        source: ./buildkitd.toml
+        target: /etc/buildkit/buildkitd.toml
+        read_only: true
+      - type: bind
+        source: ${HOME}/.config/hermes-agent/certs/ryzen-registry-ca.crt
+        target: /etc/buildkit/certs/ryzen-registry-ca.crt
+        read_only: true

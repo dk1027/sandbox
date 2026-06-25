@@ -1,24 +1,14 @@
-hermes:
-	docker build -f Dockerfile.hermes -t hermes \
-		--build-arg UID=$$(id -u) \
-		--build-arg GID=$$(id -g) \
-		.
-	docker run -it --rm \
-		--name hermes \
-		--network host \
-		-e KUBECONFIG=/home/hermes/.kube/config \
-		--mount type=bind,source="$$HOME/.kube",target=/home/hermes/.kube \
-		--mount type=bind,source="$$HOME/.hermes",target=/opt/data \
-		--mount type=bind,source="$$HOME/github.com/dk1027/sandbox",target=/home/hermes/github.com/dk1027/sandbox \
-		-w /home/hermes/github.com/dk1027/sandbox \
-		hermes
+agent-up:
+	HOST_UID=$$(id -u) HOST_GID=$$(id -g) docker compose up --build -d
 
-# https://github.com/moby/buildkit/blob/master/docs/rootless.md#containerized-deployment
+hermes: agent-up
+	docker compose exec hermes bash
+
+agent-shell:
+	docker compose exec hermes bash
+
 buildkitd:
-	docker run \
-	--name buildkitd \
-	-d \
-	--security-opt seccomp=unconfined \
-	--security-opt apparmor=unconfined \
-	--security-opt systempaths=unconfined \
-	moby/buildkit:rootless
+	docker compose up -d buildkitd
+
+agent-down:
+	docker compose down

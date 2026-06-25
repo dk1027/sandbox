@@ -12,15 +12,16 @@ KIND ?= kind
 .PHONY: all \
 	bootstrap-cluster recreate-cluster cluster apply-limits teardown \
 	build push buildpush \
-	build-apps push-apps build-chaos-monkey push-chaos-monkey \
-	setup-strimzi setup-kafka setup-monitoring deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard \
+	build-apps push-apps build-chaos-monkey push-chaos-monkey build-mcp-server push-mcp-server \
+	setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing \
+	deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards \
 	redeploy-apps redeploy-chaos-monkey \
-	grafana-port-forward grafana-password kafka-ui-port-forward
+	grafana-port-forward grafana-password kafka-ui-port-forward mcp-port-forward
 
 # Install the application stack into an already bootstrapped Kind cluster.
 # Cluster creation, node limits, the TLS registry, and ingress-nginx are owned by
 # infra/kind/bootstrap-kind-cluster.sh.
-all: setup-strimzi setup-kafka setup-monitoring deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard
+all: setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards
 
 bootstrap-cluster:
 	infra/kind/bootstrap-kind-cluster.sh
@@ -32,7 +33,7 @@ recreate-cluster:
 # `make recreate-cluster` so destructive cluster recreation is explicit.
 cluster: bootstrap-cluster
 
-# Node resource limits are applied by the bootstrap script. Keep this target as a
+# Node resource limits are handled by the bootstrap script. Keep this target as a
 # compatibility shim for old docs/scripts that may still call it.
 apply-limits:
 	@echo "Node resource limits are handled by infra/kind/bootstrap-kind-cluster.sh"
@@ -58,6 +59,12 @@ build-chaos-monkey:
 push-chaos-monkey:
 	$(MAKE) -C src push-chaos-monkey
 
+build-mcp-server:
+	$(MAKE) -C src build-mcp-server
+
+push-mcp-server:
+	$(MAKE) -C src push-mcp-server
+
 setup-strimzi:
 	$(HELM) repo add strimzi https://strimzi.io/charts/
 	$(HELM) repo update
@@ -68,12 +75,31 @@ setup-kafka:
 	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-cluster.yaml -n kafka
 	$(KUBECTL) apply -f deploy/manifests/kafka/schema-registry.yaml -n kafka
 	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-ui.yaml -n kafka
+	# Apply ServiceMonitors for Kafka components
+	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-servicemonitor.yaml -n kafka
+	$(KUBECTL) apply -f deploy/manifests/kafka/schema-registry-servicemonitor.yaml -n kafka
+	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-ui-servicemonitor.yaml -n kafka
 
 setup-monitoring:
 	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	$(HELM) repo update
 	$(HELM) upgrade --install prometheus prometheus-community/kube-prometheus-stack --namespace monitoring --create-namespace \
 		-f deploy/values/prometheus-values.yaml
+
+setup-logging:
+	$(HELM) repo add grafana https://grafana.github.io/helm-charts
+	$(HELM) repo update
+	$(HELM) upgrade --install loki grafana/loki --namespace logging --create-namespace \
+		-f deploy/values/loki-values.yaml
+
+setup-alerting:
+	$(KUBECTL) apply -f deploy/manifests/monitoring/alerting-rules.yaml
+
+setup-tracing:
+	$(HELM) repo add grafana https://grafana.github.io/helm-charts
+	$(HELM) repo update
+	$(HELM) upgrade --install tempo grafana/tempo --namespace tracing --create-namespace \
+		-f deploy/values/tempo-values.yaml
 
 deploy-apps:
 	$(HELM) upgrade --install kafka-apps deploy/charts/kafka-apps --namespace apps --create-namespace \
@@ -89,6 +115,14 @@ deploy-chaos-monkey:
 
 deploy-chaos-monkey-dashboard:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/chaos-monkey-dashboard.yaml
+
+deploy-mcp-server:
+	$(KUBECTL) apply -f deploy/manifests/monitoring/mcp-server.yaml
+
+deploy-dashboards:
+	$(KUBECTL) apply -f deploy/manifests/monitoring/kafka-dashboard.yaml
+	$(KUBECTL) apply -f deploy/manifests/monitoring/pipeline-dashboard.yaml
+	$(KUBECTL) apply -f deploy/manifests/monitoring/cluster-resources-dashboard.yaml
 
 teardown:
 	$(KIND) delete cluster --name $(CLUSTER_NAME)
@@ -113,3 +147,8 @@ kafka-ui-port-forward:
 	@echo "Forwarding Kafka UI to http://localhost:8080..."
 	@POD_NAME=$$($(KUBECTL) get pods --namespace kafka -l "app=kafka-ui" -o jsonpath="{.items[0].metadata.name}"); \
 	$(KUBECTL) --namespace kafka port-forward $$POD_NAME 8080:8080
+
+mcp-port-forward:
+	@echo "Forwarding MCP server to http://localhost:8080..."
+	@POD_NAME=$$($(KUBECTL) get pods --namespace monitoring -l "app=mcp-server" -o jsonpath="{.items[0].metadata.name}"); \
+	$(KUBECTL) --namespace monitoring port-forward $$POD_NAME 8080

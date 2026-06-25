@@ -1,0 +1,2 @@
+[registry."ryzen.local:5001"]
+  ca = ["/etc/buildkit/certs/ryzen-registry-ca.crt"]

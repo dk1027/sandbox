@@ -1,0 +1,5 @@
+.git
+.gitignore
+.DS_Store
+docker-compose.yml
+how-to-run-qwen-locally.md

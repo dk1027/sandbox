@@ -1,3 +1,5 @@
+FROM moby/buildkit:rootless AS buildkit
+
 FROM nousresearch/hermes-agent:latest
 
 # Keep the container user aligned with the host so files in bind mounts stay
@@ -13,6 +15,10 @@ ARG KUBECTL_VERSION=stable
 ARG HELM_VERSION=latest
 
 USER root
+
+# Bring in the buildctl client from the official BuildKit image. The daemon
+# runs as a separate Compose service.
+COPY --from=buildkit /usr/bin/buildctl /usr/local/bin/buildctl
 
 # Install the build tools and libraries needed to compile Python from source.
 RUN set -eux; \
@@ -91,6 +97,7 @@ RUN set -eux; \
     chown -R "${UID}:${GID}" /home/hermes
 
 ENV HOME=/home/hermes \
+    BUILDKIT_HOST=tcp://buildkitd:1234 \
     PATH=/usr/local/go/bin:/usr/local/bin:${PATH}
 
 WORKDIR /home/hermes
