@@ -30,8 +30,12 @@ services:
         target: /opt/data
       - type: bind
         source: ${HOME}/github.com/dk1027/sandbox
-        target: /home/hermes/github.com/dk1027/sandbox
-    working_dir: /home/hermes/github.com/dk1027/sandbox
+        target: /opt/data/src/github.com/dk1027/sandbox
+      - type: bind
+        source: ${HOME}/github.com/NousResearch/hermes-agent
+        target: /opt/data/src/github.com/NousResearch/hermes-agent
+        read_only: true
+    working_dir: /opt/data/src/github.com/dk1027/sandbox
 
   buildkitd:
     image: moby/buildkit:rootless
