@@ -7,7 +7,7 @@ producer:
   image:
     repository: kafka-producer
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   replicaCount: 1
   metricsPort: 8000
 
@@ -15,7 +15,7 @@ consumer:
   image:
     repository: kafka-consumer
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   replicaCount: 1
   groupId: "test-group"
   metricsPort: 8000

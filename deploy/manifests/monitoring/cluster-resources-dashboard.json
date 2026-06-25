@@ -1,0 +1,76 @@
+{
+  "uid": "cluster-resources",
+  "title": "Cluster Resources",
+  "tags": ["kubernetes", "resources", "observability"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Node CPU Usage",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (instance) (rate(node_cpu_seconds_total{mode!=\"idle\"}[5m])) * 100" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "id": 2,
+      "title": "Node Memory Usage",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (instance) (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "id": 3,
+      "title": "Pod CPU Usage",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (namespace, pod) (rate(container_cpu_usage_seconds_total{container!=\"\"}[5m])) * 1000" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "mCPU" } }
+    },
+    {
+      "id": 4,
+      "title": "Pod Memory Usage",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\"})" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "id": 5,
+      "title": "Pod Restarts",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (namespace, pod) (kube_pod_container_status_restarts_total)" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Pod Phase Count",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "refId": "A", "expr": "sum by (phase) (kube_pod_status_phase{phase=~\"Running|Pending|Failed|Unknown\"})", "legendFormat": "{{ phase }}" }
+      ]
+    }
+  ]
+}

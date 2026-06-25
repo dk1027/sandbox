@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chaos-monkey.fullname" . }}-controller
+  labels:
+    app: {{ include "chaos-monkey.fullname" . }}-controller
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: metrics
+  selector:
+    app: {{ include "chaos-monkey.fullname" . }}-controller

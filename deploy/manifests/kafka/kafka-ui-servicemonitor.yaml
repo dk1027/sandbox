@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kafka-ui
+  namespace: kafka
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: kafka-ui
+  namespaceSelector:
+    matchNames:
+      - kafka
+  endpoints:
+    - targetPort: 8080
+      interval: 30s
+      path: /metrics

@@ -1,0 +1,188 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: pipeline-observability
+    app.kubernetes.io/component: dashboard
+data:
+  pipeline-throughput.json: |
+    {
+        "uid": "pipeline-throughput",
+        "title": "Pipeline Throughput",
+        "tags": [
+            "kafka",
+            "pipeline",
+            "observability"
+        ],
+        "timezone": "browser",
+        "schemaVersion": 39,
+        "version": 1,
+        "refresh": "10s",
+        "time": {
+            "from": "now-30m",
+            "to": "now"
+        },
+        "panels": [
+            {
+                "id": 1,
+                "title": "Producer Publish Rate",
+                "type": "timeseries",
+                "datasource": "Prometheus",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 0
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "sum(rate(messages_published_total{succeed=\"true\"}[1m]))",
+                        "legendFormat": "success"
+                    },
+                    {
+                        "refId": "B",
+                        "expr": "sum(rate(messages_published_total{succeed=\"false\"}[1m]))",
+                        "legendFormat": "failure"
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "title": "Consumer Throughput",
+                "type": "timeseries",
+                "datasource": "Prometheus",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 0
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "sum(rate(messages_consumed_total[1m]))"
+                    }
+                ]
+            },
+            {
+                "id": 3,
+                "title": "Producer Success Rate",
+                "type": "stat",
+                "datasource": "Prometheus",
+                "gridPos": {
+                    "h": 4,
+                    "w": 6,
+                    "x": 0,
+                    "y": 8
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "sum(rate(messages_published_total{succeed=\"true\"}[5m])) / sum(rate(messages_published_total[5m])) * 100"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "percent",
+                        "min": 0,
+                        "max": 100,
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 90
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 99
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 4,
+                "title": "End-to-End Lag (est.)",
+                "type": "stat",
+                "datasource": "Prometheus",
+                "gridPos": {
+                    "h": 4,
+                    "w": 6,
+                    "x": 6,
+                    "y": 8
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "sum(increase(messages_published_total[5m])) - sum(increase(messages_consumed_total[5m]))"
+                    }
+                ],
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 100
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 1000
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 5,
+                "title": "Messages Published Total",
+                "type": "timeseries",
+                "datasource": "Prometheus",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 0,
+                    "y": 12
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "sum(increase(messages_published_total[1h])) by (succeed)",
+                        "legendFormat": "{{ succeed }}"
+                    }
+                ]
+            },
+            {
+                "id": 6,
+                "title": "Messages Consumed Total",
+                "type": "timeseries",
+                "datasource": "Prometheus",
+                "gridPos": {
+                    "h": 8,
+                    "w": 12,
+                    "x": 12,
+                    "y": 12
+                },
+                "targets": [
+                    {
+                        "refId": "A",
+                        "expr": "sum(increase(messages_consumed_total[1h]))"
+                    }
+                ]
+            }
+        ]
+    }

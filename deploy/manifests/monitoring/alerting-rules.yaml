@@ -1,0 +1,106 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kafka-apps-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: kafka.rules
+      rules:
+        # Under-replicated partitions
+        - alert: KafkaUnderReplicatedPartitions
+          expr: kafka_server_replicamanager_underreplicatedpartitions > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka under-replicated partitions detected"
+            description: "Broker {{ $labels.id }} has {{ $value }} under-replicated partitions."
+
+        # Consumer lag high
+        - alert: KafkaConsumerLagHigh
+          expr: rate(kafka_consumergroup_currentoffset[5m]) - rate(kafka_consumergroup_logendoffset[5m]) > 1000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Kafka consumer lag is high"
+            description: "Consumer group {{ $labels.group_id }} on topic {{ $labels.topic }} has lag of {{ $value }}."
+
+        # Broker down
+        - alert: KafkaBrokerDown
+          expr: absent(up{job="kafka-broker"} == 1)
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kafka broker is down"
+            description: "Kafka broker {{ $labels.instance }} has stopped reporting metrics."
+
+        # Producer publish failures
+        - alert: ProducerPublishFailures
+          expr: |
+            sum(rate(messages_published_total{succeed="false"}[5m]))
+            /
+            sum(rate(messages_published_total[5m]))
+            > 0.10
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Producer publish failure rate > 10%"
+            description: "Producer failure rate is {{ $value | humanizePercentage }} over 5 minutes."
+
+        # Consumer throughput zero
+        - alert: ConsumerThroughputZero
+          expr: sum(rate(messages_consumed_total[5m])) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Consumer throughput has dropped to zero"
+            description: "No messages consumed in the last 5 minutes."
+
+    - name: chaos.rules
+      rules:
+        - alert: ChaosExperimentActive
+          expr: chaos_monkey_active_targets > 0
+          for: 0m
+          labels:
+            severity: info
+          annotations:
+            summary: "Chaos experiment is active"
+            description: "{{ $value }} pods are currently experiencing injected chaos on node {{ $labels.node }}."
+
+    - name: kubernetes.rules
+      rules:
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total[15m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod is crash looping"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} has restarted {{ $value }} times in 15 minutes."
+
+        - alert: NodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kubernetes node is not ready"
+            description: "Node {{ $labels.node }} has been NotReady for over 2 minutes."
+
+        - alert: PodNotRunning
+          expr: |
+            kube_pod_status_phase{phase=~"Failed|Pending"} == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod is not in Running state"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is in {{ $labels.phase }} state for over 10 minutes."

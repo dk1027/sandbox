@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "chaos-monkey.fullname" . }}-daemon
+  labels:
+    app: {{ include "chaos-monkey.fullname" . }}-daemon
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: {{ .Values.daemon.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app: {{ include "chaos-monkey.fullname" . }}-daemon

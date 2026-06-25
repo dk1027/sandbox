@@ -45,6 +45,10 @@ services:
       - seccomp=unconfined
       - apparmor=unconfined
       - systempaths=unconfined
+    # Pin ryzen.local to the Linux registry host's IPv4 so BuildKit avoids the
+    # AAAA record and reaches the TLS registry on the LAN address directly.
+    extra_hosts:
+      - ryzen.local:192.168.1.73
     volumes:
       - type: bind
         source: ./buildkitd.toml

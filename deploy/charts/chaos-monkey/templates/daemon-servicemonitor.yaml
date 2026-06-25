@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "chaos-monkey.fullname" . }}-daemon
+  labels:
+    app: {{ include "chaos-monkey.fullname" . }}
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "chaos-monkey.fullname" . }}-daemon
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
