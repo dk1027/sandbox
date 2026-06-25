@@ -27,6 +27,38 @@ metadata:
 spec:
   kafka:
     version: 4.2.0
+    metricsConfig:
+      type: jmxPrometheusExporter
+      values:
+        jmxPort: 9999
+        rules:
+          - "kafka.server:type=ReplicaManager"
+          - "kafka.server:type=ReplicaFetcherManager,attr=MaxLag"
+          - "kafka.server:type=BrokerTopicMetrics"
+          - "kafka.server:type=IsrManager"
+          - "kafka.server:type=SessionManager"
+          - "kafka.server:type=RequestMetrics"
+          - "kafka.server:type=GroupCoordinator,groupId=*"
+          - "kafka.server:type=ConsumerCoordinator,groupId=*"
+          - "kafka.server:type=TransactionCoordinator"
+          - "kafka.server:type=DelayedOperationPurgatory,DelayedOperation=*"
+          - "kafka.server:type=FetcherManager,client=*"
+          - "kafka.server:type=SocketServer"
+          - "kafka.server:type=KafkaRequestHandlerPool"
+          - "kafka.server:type=AppInfo"
+          - "kafka.server:type=LogManager"
+          - "kafka.server:type=QuotaManager,quotaType=*"
+          - "kafka.controller:type=KafkaController"
+          - "kafka.controller:type=ControllerStats"
+          - "kafka.network:type=RequestMetrics"
+          - "kafka.network:type=SocketServer"
+          - "kafka.group:type=GroupCoordinator"
+          - "kafka.coordinator.group:type=GroupCoordinator"
+          - "kafka.coordinator.transaction:type=TransactionCoordinator"
+          - "kafka.cluster:type=ClusterMetadataManager"
+          - "kafka.metadata:type=MetadataCache"
+          - "kafka.metadata:type=MetadataQuorumClientMetrics"
+          - "kafka.metadata:type=MetadataQuorumMetrics"
     listeners:
       - name: plain
         port: 9092

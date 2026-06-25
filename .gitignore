@@ -2,3 +2,4 @@
 /generated/*
 !/generated/.gitignore
 /infra/kind/certs/
+*__pycache__*
