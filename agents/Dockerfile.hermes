@@ -11,6 +11,7 @@ ARG GID=1000
 # pages, so the agent has modern toolchains for coding and tests.
 ARG PYTHON_VERSION=3.14.6
 ARG GO_VERSION=1.26.4
+ARG BUILDX_VERSION=v0.35.0
 ARG KUBECTL_VERSION=stable
 ARG HELM_VERSION=latest
 
@@ -19,6 +20,20 @@ USER root
 # Bring in the buildctl client from the official BuildKit image. The daemon
 # runs as a separate Compose service.
 COPY --from=buildkit /usr/bin/buildctl /usr/local/bin/buildctl
+
+# Install the Docker buildx plugin so the container can use either Docker or
+# a remote BuildKit backend depending on the configured builder.
+RUN set -eux; \
+    case "$(uname -m)" in \
+      x86_64) buildx_arch=amd64 ;; \
+      aarch64|arm64) buildx_arch=arm64 ;; \
+      *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+    esac; \
+    install -d /usr/local/lib/docker/cli-plugins; \
+    curl -fsSLo /usr/local/lib/docker/cli-plugins/docker-buildx \
+      "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-${buildx_arch}"; \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx; \
+    /usr/local/lib/docker/cli-plugins/docker-buildx version
 
 # Install the build tools and libraries needed to compile Python from source.
 RUN set -eux; \

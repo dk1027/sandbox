@@ -3,35 +3,20 @@
 You are running inside the `hermes` container. The repo is mounted at:
 
 ```text
-/home/hermes/github.com/dk1027/sandbox
+/opt/data/src/github.com/dk1027/sandbox
 ```
 
 Use that directory as the working tree when editing code or running tests.
 
-## Image Builds
+## Image build and push
 
-Build images with `buildctl`, using:
+The `hermes` container has no access to the host's docker daemon. 
 
-```bash
-BUILDKIT_HOST=tcp://buildkitd:1234
-```
+To build images, use the builtkid backend: `tcp://buildkitd:1234` and push images to the Ryzen registry: `ryzen.local:5001`
 
-Before building, check BuildKit connectivity:
+`kubectl` and `helm` are available to deploy workloads to `dev-cluster`, which is a Kind cluster running on `ryzen.local`
 
-```bash
-buildctl debug workers
-```
-
-To build and push an image to the Ryzen registry, run this from the directory
-containing the Dockerfile:
-
-```bash
-buildctl build \
-  --frontend dockerfile.v0 \
-  --local context=. \
-  --local dockerfile=. \
-  --output type=image,name=ryzen.local:5001/<image-name>:<tag>,push=true
-```
+When working on build system / Makefiles, make sure you do not break the developer unsandboxed workflow that uses the local docker daemon.
 
 ## Registry TLS
 

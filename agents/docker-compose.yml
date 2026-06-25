@@ -13,10 +13,13 @@ services:
     entrypoint:
       - sleep
       - infinity
+    init: true
     stdin_open: true
     tty: true
     extra_hosts:
       - host.docker.internal:host-gateway
+    ports:
+      - "9119:9119"
     environment:
       BUILDKIT_HOST: tcp://buildkitd:1234
       KUBECONFIG: /home/hermes/.kube/config
