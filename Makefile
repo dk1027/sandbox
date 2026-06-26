@@ -11,13 +11,16 @@ KUBECTL ?= kubectl --context $(KUBE_CONTEXT)
 HELM ?= helm --kube-context $(KUBE_CONTEXT)
 DOCKER ?= docker
 KIND ?= kind
+SRE_AGENT_NAMESPACE ?= apps
+SRE_AGENT_APP_NAMESPACE ?= $(SRE_AGENT_NAMESPACE)
+SRE_AGENT_RELEASE ?= sre-agent-$(SRE_AGENT_APP_NAME)
 
 .PHONY: all \
 	bootstrap-cluster recreate-cluster cluster apply-limits teardown \
 	build push buildpush \
-	build-apps push-apps build-chaos-monkey push-chaos-monkey build-mcp-server push-mcp-server \
+	build-apps push-apps build-chaos-monkey push-chaos-monkey build-mcp-server push-mcp-server build-sre-agent push-sre-agent \
 	setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing \
-	deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards \
+	deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-sre-agent deploy-dashboards \
 	redeploy-apps redeploy-chaos-monkey \
 	grafana-port-forward grafana-password kafka-ui-port-forward mcp-port-forward \
 	check check-python
@@ -68,6 +71,12 @@ build-mcp-server:
 
 push-mcp-server:
 	$(MAKE) -C src push-mcp-server
+
+build-sre-agent:
+	$(MAKE) -C src build-sre-agent
+
+push-sre-agent:
+	$(MAKE) -C src push-sre-agent
 
 setup-strimzi:
 	$(HELM) repo add strimzi https://strimzi.io/charts/
@@ -124,6 +133,12 @@ deploy-chaos-monkey-dashboard:
 
 deploy-mcp-server:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/mcp-server.yaml
+	$(KUBECTL) apply -f deploy/manifests/monitoring/mcp-server-servicemonitor.yaml
+
+deploy-sre-agent:
+	$(HELM) upgrade --install $(SRE_AGENT_RELEASE) deploy/charts/sre-agent --namespace $(SRE_AGENT_NAMESPACE) --create-namespace \
+		--set app.name=$(SRE_AGENT_APP_NAME) \
+		--set app.namespace=$(SRE_AGENT_APP_NAMESPACE)
 
 deploy-dashboards:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/kafka-dashboard.yaml

@@ -6,7 +6,7 @@ import logging
 import os
 import time
 
-from confluent_kafka import Consumer, KafkaError
+from confluent_kafka import Consumer, KafkaError, TopicPartition
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.serialization import MessageField, SerializationContext
@@ -16,13 +16,40 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Status, StatusCode
-from prometheus_client import Counter, start_http_server
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 MESSAGES_CONSUMED: Counter = Counter(
     "messages_consumed_total", "Total messages consumed from Kafka"
+)
+MESSAGE_CONSUME_DURATION: Histogram = Histogram(
+    "message_consume_duration_seconds",
+    "Time spent decoding and handling Kafka messages",
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5),
+)
+CONSUMER_ERRORS: Counter = Counter(
+    "consumer_errors_total",
+    "Total Kafka consumer processing errors",
+    ["stage", "reason"],
+)
+CONSUMER_PARTITION_LAG: Gauge = Gauge(
+    "consumer_partition_lag_messages",
+    "Estimated consumer lag in messages for the current partition",
+    ["topic", "partition", "group_id"],
+)
+CONSUMER_READY: Gauge = Gauge(
+    "consumer_ready",
+    "Whether the Kafka consumer finished its startup checks",
+)
+CONSUMER_LAST_SUCCESS_TIMESTAMP: Gauge = Gauge(
+    "consumer_last_success_timestamp_seconds",
+    "Unix timestamp of the last successful Kafka consume",
+)
+CONSUMER_LAST_ERROR_TIMESTAMP: Gauge = Gauge(
+    "consumer_last_error_timestamp_seconds",
+    "Unix timestamp of the last Kafka consumer error",
 )
 
 KAFKA_BROKERS: str = os.getenv(
@@ -80,6 +107,19 @@ def main() -> None:
     }
     consumer = Consumer(consumer_conf)
     consumer.subscribe([TOPIC])
+    CONSUMER_READY.set(1)
+
+    def update_partition_lag(message_partition: int, message_offset: int) -> None:
+        """Record the lag for the active partition."""
+
+        partition = TopicPartition(TOPIC, message_partition)
+        _low_offset, high_offset = consumer.get_watermark_offsets(
+            partition, timeout=5.0
+        )
+        lag = max(high_offset - message_offset - 1, 0)
+        CONSUMER_PARTITION_LAG.labels(
+            topic=TOPIC, partition=str(message_partition), group_id=GROUP_ID
+        ).set(lag)
 
     try:
         while True:
@@ -92,8 +132,13 @@ def main() -> None:
                 if error.code() == KafkaError._PARTITION_EOF:
                     continue
                 logger.error("Consumer error: %s", error)
+                CONSUMER_ERRORS.labels(
+                    stage="poll", reason=str(error.code())
+                ).inc()
+                CONSUMER_LAST_ERROR_TIMESTAMP.set(time.time())
                 continue
 
+            message_started_at = time.perf_counter()
             with tracer.start_as_current_span(
                 f"consume-message-p{msg.partition()}-o{msg.offset()}"
             ) as span:
@@ -106,8 +151,13 @@ def main() -> None:
                     )
                     logger.info("Consumed message: %s", user)
                     MESSAGES_CONSUMED.inc()
+                    update_partition_lag(msg.partition(), msg.offset())
+                    MESSAGE_CONSUME_DURATION.observe(time.perf_counter() - message_started_at)
+                    CONSUMER_LAST_SUCCESS_TIMESTAMP.set(time.time())
                 except Exception as exc:
                     logger.exception("Deserialization error")
+                    CONSUMER_ERRORS.labels(stage="deserialize", reason=type(exc).__name__).inc()
+                    CONSUMER_LAST_ERROR_TIMESTAMP.set(time.time())
                     span.record_exception(exc)
                     span.set_status(Status(StatusCode.ERROR, str(exc)))
     finally:

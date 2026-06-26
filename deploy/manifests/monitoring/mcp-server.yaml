@@ -64,6 +64,8 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+            - containerPort: 8081
+              name: metrics
           env:
             - name: PROMETHEUS_URL
               value: http://prometheus-operated.monitoring.svc.cluster.local:9090
@@ -73,6 +75,24 @@ spec:
               value: my-cluster-kafka-pool-a-0
             - name: KAFKA_NAMESPACE
               value: kafka
+            - name: METRICS_PORT
+              value: "8081"
+            - name: OTEL_SERVICE_NAME
+              value: sre-observability-mcp
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://tempo.tracing.svc.cluster.local:4317
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 20
           resources:
             limits:
               cpu: 200m
@@ -93,5 +113,9 @@ spec:
       targetPort: 8080
       protocol: TCP
       name: http
+    - port: 8081
+      targetPort: 8081
+      protocol: TCP
+      name: metrics
   selector:
     app: mcp-server

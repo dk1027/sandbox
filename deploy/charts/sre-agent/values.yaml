@@ -1,0 +1,67 @@
+nameOverride: ""
+fullnameOverride: ""
+
+app:
+  name: sre-agent
+  namespace: apps
+
+image:
+  repository: ryzen.local:5001/sre-agent
+  tag: dev
+  pullPolicy: Always
+
+replicaCount: 1
+listenAddr: ":8080"
+
+llm:
+  baseUrl: http://host.docker.internal:8080/v1
+  model: gpt-4o-mini
+  apiKey: EMPTY
+
+observability:
+  prometheusUrl: http://prometheus-operated.monitoring.svc.cluster.local:9090
+  lokiUrl: http://loki-gateway.logging.svc.cluster.local:3100
+  otelServiceName: ""
+  otelExporterOtlpEndpoint: http://tempo.tracing.svc.cluster.local:4317
+
+alertRouting:
+  receiver: ""
+  webhookPath: /alerts
+  matchLabels:
+    app: ""
+    namespace: ""
+  groupBy:
+    - alertname
+    - namespace
+    - app
+
+runtime:
+  remediationMode: recommend
+  confidenceThreshold: 0.7
+
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+podAnnotations: {}
+podLabels: {}
+resources: {}
+
+rbac:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "services", "events", "configmaps", "persistentvolumeclaims"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["apps"]
+      resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+      verbs: ["get", "list", "watch"]
+    - apiGroups: ["batch"]
+      resources: ["jobs", "cronjobs"]
+      verbs: ["get", "list", "watch"]
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""

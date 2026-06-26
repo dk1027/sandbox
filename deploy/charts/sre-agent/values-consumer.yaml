@@ -1,0 +1,13 @@
+app:
+  name: consumer
+  namespace: apps
+alertRouting:
+  receiver: consumer-sre-agent
+  matchLabels:
+    app: consumer
+    namespace: apps
+llm:
+  model: gpt-4o-mini
+runtime:
+  remediationMode: recommend
+  confidenceThreshold: 0.7

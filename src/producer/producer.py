@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
 import time
@@ -17,7 +18,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import Status, StatusCode
-from prometheus_client import Counter, start_http_server
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,6 +27,24 @@ MESSAGES_PUBLISHED: Counter = Counter(
     "messages_published_total",
     "Total messages published by the Kafka producer",
     ["succeed", "queued", "reason"],
+)
+MESSAGE_PUBLISH_DURATION: Histogram = Histogram(
+    "message_publish_duration_seconds",
+    "Time spent enqueueing and confirming Kafka message delivery",
+    ["result"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2, 5),
+)
+PRODUCER_READY: Gauge = Gauge(
+    "producer_ready",
+    "Whether the Kafka producer finished its startup checks",
+)
+PRODUCER_LAST_SUCCESS_TIMESTAMP: Gauge = Gauge(
+    "producer_last_success_timestamp_seconds",
+    "Unix timestamp of the last successful Kafka publish",
+)
+PRODUCER_LAST_ERROR_TIMESTAMP: Gauge = Gauge(
+    "producer_last_error_timestamp_seconds",
+    "Unix timestamp of the last Kafka publish error",
 )
 
 KAFKA_BROKERS: str = os.getenv(
@@ -71,17 +90,23 @@ def build_schema_registry_client(url: str) -> SchemaRegistryClient:
     return SchemaRegistryClient({"url": url})
 
 
-def delivery_report(err: Exception | None, msg: Any) -> None:
+def delivery_report(started_at: float, err: Exception | None, msg: Any) -> None:
     """Prometheus callback that records delivery success or failure."""
+
+    elapsed = time.perf_counter() - started_at
 
     if err is not None:
         logger.error("Message delivery failed: %s", err)
+        MESSAGE_PUBLISH_DURATION.labels(result="failure").observe(elapsed)
+        PRODUCER_LAST_ERROR_TIMESTAMP.set(time.time())
         MESSAGES_PUBLISHED.labels(
             succeed="false", queued="true", reason=type(err).__name__
         ).inc()
         return
 
     logger.info("Message delivered to %s [%s]", msg.topic(), msg.partition())
+    MESSAGE_PUBLISH_DURATION.labels(result="success").observe(elapsed)
+    PRODUCER_LAST_SUCCESS_TIMESTAMP.set(time.time())
     MESSAGES_PUBLISHED.labels(succeed="true", queued="true", reason="").inc()
 
 
@@ -104,6 +129,7 @@ def main() -> None:
 
     producer_conf: dict[str, str] = {"bootstrap.servers": KAFKA_BROKERS}
     producer = Producer(producer_conf)
+    PRODUCER_READY.set(1)
 
     counter = 0
     while True:
@@ -111,18 +137,25 @@ def main() -> None:
         with tracer.start_as_current_span(f"produce-message-{counter}") as span:
             span.set_attribute("messaging.destination", TOPIC)
             span.set_attribute("messaging.message_id", str(counter))
+            publish_started_at = time.perf_counter()
             try:
+                on_delivery = functools.partial(delivery_report, publish_started_at)
                 producer.produce(
                     topic=TOPIC,
                     key=string_serializer(str(counter)),
                     value=avro_serializer(
-                        user, SerializationContext(TOPIC, MessageField.VALUE)
+                        user,
+                        SerializationContext(TOPIC, MessageField.VALUE),
                     ),
-                    on_delivery=delivery_report,
+                    on_delivery=on_delivery,
                 )
                 logger.info("Produced message %s", counter)
             except Exception as exc:
                 logger.exception("Exception producing message")
+                MESSAGE_PUBLISH_DURATION.labels(result="error").observe(
+                    time.perf_counter() - publish_started_at
+                )
+                PRODUCER_LAST_ERROR_TIMESTAMP.set(time.time())
                 MESSAGES_PUBLISHED.labels(
                     succeed="false", queued="false", reason=type(exc).__name__
                 ).inc()

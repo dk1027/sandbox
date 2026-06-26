@@ -1,0 +1,13 @@
+app:
+  name: producer
+  namespace: apps
+alertRouting:
+  receiver: producer-sre-agent
+  matchLabels:
+    app: producer
+    namespace: apps
+llm:
+  model: gpt-4o-mini
+runtime:
+  remediationMode: recommend
+  confidenceThreshold: 0.7

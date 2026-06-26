@@ -21,6 +21,18 @@ spec:
           ports:
             - name: metrics
               containerPort: {{ .Values.consumer.metricsPort }}
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 20
           env:
             - name: KAFKA_BROKERS
               value: {{ .Values.kafka.bootstrapServers }}
