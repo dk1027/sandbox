@@ -13,7 +13,9 @@ from confluent_kafka.serialization import MessageField, SerializationContext
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import BatchSpanProcessor, TracerProvider
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import Status, StatusCode
 from prometheus_client import Counter, start_http_server
 
 logging.basicConfig(level=logging.INFO)
@@ -107,7 +109,7 @@ def main() -> None:
                 except Exception as exc:
                     logger.exception("Deserialization error")
                     span.record_exception(exc)
-                    span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
+                    span.set_status(Status(StatusCode.ERROR, str(exc)))
     finally:
         consumer.close()
 

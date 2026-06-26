@@ -57,12 +57,6 @@ grafana:
           editable: true
           options:
             path: /var/lib/grafana/dashboards/default
-  dashboards:
-    default:
-      kafka-cluster:
-        url: https://raw.githubusercontent.com/grafana/grafana-kafka-app-dashboards/main/dashboards/kafka-overview.json
-      kafka-consumer:
-        url: https://raw.githubusercontent.com/grafana/grafana-kafka-app-dashboards/main/dashboards/kafka-consumer.json
   # Add Loki and Tempo as datasources once deployed
   additionalDataSources: |
     - name: Loki

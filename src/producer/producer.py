@@ -14,7 +14,9 @@ from confluent_kafka.serialization import MessageField, SerializationContext, St
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import BatchSpanProcessor, TracerProvider
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import Status, StatusCode
 from prometheus_client import Counter, start_http_server
 
 logging.basicConfig(level=logging.INFO)
@@ -125,7 +127,7 @@ def main() -> None:
                     succeed="false", queued="false", reason=type(exc).__name__
                 ).inc()
                 span.record_exception(exc)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
             finally:
                 try:
                     producer.poll(0)
