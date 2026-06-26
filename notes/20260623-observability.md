@@ -53,8 +53,8 @@ Key metrics to capture:
 
 Add Grafana Loki + Promtail (or Fluent Bit) so the SRE agent can query logs.
 
-1. **Deploy Loki stack** via `grafana/loki-stack` Helm chart in a `logging` namespace.
-2. **Configure Promtail as a DaemonSet** to collect container logs from all namespaces.
+1. **Deploy Loki** via the `grafana/loki` Helm chart in a `logging` namespace.
+2. **Deploy Promtail** via the `grafana/promtail` Helm chart as a DaemonSet to collect container logs from all namespaces.
 3. **Add Loki as a Grafana datasource** — update `prometheus-values.yaml` or create a separate ConfigMap.
 4. **Label pods** with `app` and `component` labels so log queries are structured.
 
@@ -138,7 +138,8 @@ Phase 1 is the highest-impact quick win — Strimzi already ships the JMX export
 | `deploy/manifests/kafka/kafka-exporter-servicemonitor.yaml` | New — ServiceMonitor for Kafka Exporter |
 | `deploy/values/prometheus-values.yaml` | Add `prometheusRule` config, Loki datasource |
 | `deploy/manifests/monitoring/alerting-rules.yaml` | New — PrometheusRule CRD |
-| `deploy/manifests/monitoring/loki-stack-values.yaml` | New — Loki Helm values |
+| `deploy/values/loki-values.yaml` | New — Loki Helm values |
+| `deploy/values/promtail-values.yaml` | New — Promtail Helm values |
 | `deploy/charts/chaos-monkey/templates/` | Add ServiceMonitor for chaos-monkey controller |
 | `Makefile` | Add `setup-logging`, `setup-alerting`, `setup-mcp` targets |
 | `src/producer/producer.py` | Add consumer lag / latency metrics |

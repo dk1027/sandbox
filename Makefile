@@ -3,6 +3,8 @@ KUBE_CONTEXT ?= kind-$(CLUSTER_NAME)
 REGISTRY ?= ryzen.local:5001
 IMAGE_TAG ?= dev
 IMAGE_PLATFORM ?= linux/amd64
+LOKI_CHART_VERSION ?= 7.0.0
+PROMTAIL_CHART_VERSION ?= 6.17.1
 PYTHON_SOURCES := src/producer/producer.py src/consumer/consumer.py src/mcp-server/server.py
 
 KUBECTL ?= kubectl --context $(KUBE_CONTEXT)
@@ -91,8 +93,10 @@ setup-monitoring:
 setup-logging:
 	$(HELM) repo add grafana https://grafana.github.io/helm-charts
 	$(HELM) repo update
-	$(HELM) upgrade --install loki grafana/loki --namespace logging --create-namespace \
+	$(HELM) upgrade --install loki grafana/loki --version $(LOKI_CHART_VERSION) --namespace logging --create-namespace \
 		-f deploy/values/loki-values.yaml
+	$(HELM) upgrade --install promtail grafana/promtail --version $(PROMTAIL_CHART_VERSION) --namespace logging --create-namespace \
+		-f deploy/values/promtail-values.yaml
 
 setup-alerting:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/alerting-rules.yaml

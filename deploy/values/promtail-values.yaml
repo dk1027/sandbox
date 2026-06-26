@@ -1,0 +1,27 @@
+# Grafana Promtail ships Kubernetes pod logs to Loki.
+
+config:
+  clients:
+    - url: http://loki-gateway.logging.svc.cluster.local/loki/api/v1/push
+  snippets:
+    pipelineStages:
+      - cri: {}
+
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus
+  namespaceSelector:
+    matchNames:
+      - logging
+  interval: 30s
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+networkPolicy:
+  enabled: false
