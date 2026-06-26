@@ -1,44 +1,45 @@
+"""Kafka producer with Prometheus metrics and OpenTelemetry tracing."""
+
+from __future__ import annotations
+
+import logging
 import os
 import time
-import logging
+from typing import Any
+
 from confluent_kafka import Producer
-from confluent_kafka.serialization import StringSerializer, SerializationContext, MessageField
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
-from prometheus_client import start_http_server, Counter
-
-# OpenTelemetry tracing
+from confluent_kafka.serialization import MessageField, SerializationContext, StringSerializer
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import BatchSpanProcessor, TracerProvider
+from prometheus_client import Counter, start_http_server
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MESSAGES_PUBLISHED = Counter(
-    'messages_published_total',
-    'Total messages published by the Kafka producer',
-    ['succeed', 'queued', 'reason'],
+MESSAGES_PUBLISHED: Counter = Counter(
+    "messages_published_total",
+    "Total messages published by the Kafka producer",
+    ["succeed", "queued", "reason"],
 )
 
-KAFKA_BROKERS = os.getenv('KAFKA_BROKERS', 'my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092')
-TOPIC = os.getenv('TOPIC', 'test-topic')
-METRICS_PORT = int(os.getenv('METRICS_PORT', '8000'))
-SCHEMA_REGISTRY_URL = os.getenv('SCHEMA_REGISTRY_URL', 'http://confluent-sr.kafka.svc.cluster.local:8081')
-OTEL_SERVICE_NAME = os.getenv('OTEL_SERVICE_NAME', 'kafka-producer')
-OTEL_ENDPOINT = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://tempo.tracing.svc.cluster.local:4317')
+KAFKA_BROKERS: str = os.getenv(
+    "KAFKA_BROKERS", "my-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+)
+TOPIC: str = os.getenv("TOPIC", "test-topic")
+METRICS_PORT: int = int(os.getenv("METRICS_PORT", "8000"))
+SCHEMA_REGISTRY_URL: str = os.getenv(
+    "SCHEMA_REGISTRY_URL", "http://confluent-sr.kafka.svc.cluster.local:8081"
+)
+OTEL_SERVICE_NAME: str = os.getenv("OTEL_SERVICE_NAME", "kafka-producer")
+OTEL_ENDPOINT: str = os.getenv(
+    "OTEL_EXPORTER_OTLP_ENDPOINT", "http://tempo.tracing.svc.cluster.local:4317"
+)
 
-# Initialize OpenTelemetry tracing
-resource = Resource.create({"service.name": OTEL_SERVICE_NAME})
-provider = TracerProvider(resource=resource)
-processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_ENDPOINT, insecure=True))
-provider.add_span_processor(processor)
-trace.set_tracer_provider(provider)
-tracer = trace.get_tracer(__name__)
-
-schema_str = """
+SCHEMA_STR: str = """
 {
   "namespace": "example.avro",
   "type": "record",
@@ -50,28 +51,56 @@ schema_str = """
 }
 """
 
-def delivery_report(err, msg):
+
+def configure_tracing(service_name: str, endpoint: str) -> None:
+    """Configure an OTLP tracer provider for the process."""
+
+    resource = Resource.create({"service.name": service_name})
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True))
+    )
+    trace.set_tracer_provider(provider)
+
+
+def build_schema_registry_client(url: str) -> SchemaRegistryClient:
+    """Create a Schema Registry client."""
+
+    return SchemaRegistryClient({"url": url})
+
+
+def delivery_report(err: Exception | None, msg: Any) -> None:
+    """Prometheus callback that records delivery success or failure."""
+
     if err is not None:
-        logger.error(f"Message delivery failed: {err}")
-        MESSAGES_PUBLISHED.labels(succeed='false', queued='true', reason=type(err).__name__).inc()
-    else:
-        logger.info(f"Message delivered to {msg.topic()} [{msg.partition()}]")
-        MESSAGES_PUBLISHED.labels(succeed='true', queued='true', reason='').inc()
+        logger.error("Message delivery failed: %s", err)
+        MESSAGES_PUBLISHED.labels(
+            succeed="false", queued="true", reason=type(err).__name__
+        ).inc()
+        return
 
-def main():
-    logger.info(f"Starting producer. Connecting to {KAFKA_BROKERS}, topic: {TOPIC}")
+    logger.info("Message delivered to %s [%s]", msg.topic(), msg.partition())
+    MESSAGES_PUBLISHED.labels(succeed="true", queued="true", reason="").inc()
+
+
+def main() -> None:
+    """Run the producer loop forever."""
+
+    configure_tracing(OTEL_SERVICE_NAME, OTEL_ENDPOINT)
+    tracer = trace.get_tracer(__name__)
+
+    logger.info("Starting producer. Connecting to %s, topic: %s", KAFKA_BROKERS, TOPIC)
     start_http_server(METRICS_PORT)
-    logger.info(f"Started metrics server on port {METRICS_PORT}")
+    logger.info("Started metrics server on port %s", METRICS_PORT)
 
-    # Wait for Schema Registry to be available (simple retry logic can be added here)
+    # Wait for Schema Registry to be available.
     time.sleep(15)
 
-    schema_registry_conf = {'url': SCHEMA_REGISTRY_URL}
-    schema_registry_client = SchemaRegistryClient(schema_registry_conf)
-    avro_serializer = AvroSerializer(schema_registry_client, schema_str)
-    string_serializer = StringSerializer('utf_8')
+    schema_registry_client = build_schema_registry_client(SCHEMA_REGISTRY_URL)
+    avro_serializer = AvroSerializer(schema_registry_client, SCHEMA_STR)
+    string_serializer = StringSerializer("utf_8")
 
-    producer_conf = {'bootstrap.servers': KAFKA_BROKERS}
+    producer_conf: dict[str, str] = {"bootstrap.servers": KAFKA_BROKERS}
     producer = Producer(producer_conf)
 
     counter = 0
@@ -81,24 +110,31 @@ def main():
             span.set_attribute("messaging.destination", TOPIC)
             span.set_attribute("messaging.message_id", str(counter))
             try:
-                producer.produce(topic=TOPIC,
-                                 key=string_serializer(str(counter)),
-                                 value=avro_serializer(user, SerializationContext(TOPIC, MessageField.VALUE)),
-                                 on_delivery=delivery_report)
-                logger.info(f"Produced message {counter}")
-            except Exception as e:
-                logger.error(f"Exception producing message: {e}")
-                MESSAGES_PUBLISHED.labels(succeed='false', queued='false', reason=type(e).__name__).inc()
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                producer.produce(
+                    topic=TOPIC,
+                    key=string_serializer(str(counter)),
+                    value=avro_serializer(
+                        user, SerializationContext(TOPIC, MessageField.VALUE)
+                    ),
+                    on_delivery=delivery_report,
+                )
+                logger.info("Produced message %s", counter)
+            except Exception as exc:
+                logger.exception("Exception producing message")
+                MESSAGES_PUBLISHED.labels(
+                    succeed="false", queued="false", reason=type(exc).__name__
+                ).inc()
+                span.record_exception(exc)
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc)))
             finally:
                 try:
                     producer.poll(0)
-                except Exception as e:
-                    logger.error(f"Exception polling producer: {e}")
+                except Exception:
+                    logger.exception("Exception polling producer")
 
         counter += 1
         time.sleep(10)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -1,64 +1,46 @@
 # Grafana Tempo via grafana/tempo Helm chart
-# Battle-tested: https://github.com/grafana/helm-charts/tree/main/charts/tempo
-
-tempo:
-  mode: all-in-one
+# Use a raw tempo config string so the deprecated chart doesn't synthesize invalid storage fields.
+config: |
+  memberlist:
+    cluster_label: "tempo.tracing"
+  multitenancy_enabled: false
+  usage_report:
+    reporting_enabled: false
+  server:
+    http_listen_port: 3200
+  compactor:
+    compaction:
+      block_retention: 24h
+  distributor:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:14250
+          thrift_binary:
+            endpoint: 0.0.0.0:6832
+          thrift_compact:
+            endpoint: 0.0.0.0:6831
+          thrift_http:
+            endpoint: 0.0.0.0:14268
+      zipkin:
+        endpoint: 0.0.0.0:9411
+  ingester: {}
   storage:
     trace:
       backend: local
-    local:
-      path: /var/tempo/traces
-  persistence:
-    enabled: true
-    size: 10Gi
-  config:
-    server:
-      http_listen_port: 3200
-    auth_enabled: false
-    distributor:
-      receivers:
-        otlp:
-          protocols:
-            grpc:
-              endpoint: 0.0.0.0:4317
-            http:
-              endpoint: 0.0.0.0:4318
-    ingester:
-      max_block_bytes: 1048576
-      max_block_duration: 5m
-    compactor:
-      compaction:
-        compaction_window: 1h
-        max_compaction_objects: 1000000
-        block_retention: 6h
-        compacted_block_retention: 12h
-    overrides:
-      defaults:
-        ingestion_tenant_id: default
-      globals:
-        max_global_traces_per_user: 100
-    query_frontend:
-      search:
-        duration_limit: 7d
-        max_duration: 7d
-        front_end_timeout: 10s
-        type: quick
-    query_scheduler:
-      max_outstanding_requests: 10000
-    metrics_generator:
-      processor:
-        registry_filters:
-          filter_missing_service: true
-        storage:
-          path: /var/tempo/generator/wal
-          remote_write:
-            - endpoint: http://prometheus-operated.monitoring.svc.cluster.local:9090/api/v1/write
-              send_native_histograms: true
-              insecure: true
-      storage:
-        path: /var/tempo/generator_blocks
+      local:
+        path: /var/tempo/traces
+      wal:
+        path: /var/tempo/wal
+  querier: {}
 
-# Service for OTLP ingestion
 extraExposePorts:
   - name: otlp-grpc
     port: 4317

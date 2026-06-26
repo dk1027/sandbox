@@ -3,6 +3,7 @@ KUBE_CONTEXT ?= kind-$(CLUSTER_NAME)
 REGISTRY ?= ryzen.local:5001
 IMAGE_TAG ?= dev
 IMAGE_PLATFORM ?= linux/amd64
+PYTHON_SOURCES := src/producer/producer.py src/consumer/consumer.py src/mcp-server/server.py
 
 KUBECTL ?= kubectl --context $(KUBE_CONTEXT)
 HELM ?= helm --kube-context $(KUBE_CONTEXT)
@@ -16,7 +17,8 @@ KIND ?= kind
 	setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing \
 	deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards \
 	redeploy-apps redeploy-chaos-monkey \
-	grafana-port-forward grafana-password kafka-ui-port-forward mcp-port-forward
+	grafana-port-forward grafana-password kafka-ui-port-forward mcp-port-forward \
+	check check-python
 
 # Install the application stack into an already bootstrapped Kind cluster.
 # Cluster creation, node limits, the TLS registry, and ingress-nginx are owned by
@@ -123,6 +125,12 @@ deploy-dashboards:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/kafka-dashboard.yaml
 	$(KUBECTL) apply -f deploy/manifests/monitoring/pipeline-dashboard.yaml
 	$(KUBECTL) apply -f deploy/manifests/monitoring/cluster-resources-dashboard.yaml
+
+check: check-python
+
+check-python:
+	uv run --group dev mypy $(PYTHON_SOURCES)
+	uv run --group dev ruff check $(PYTHON_SOURCES)
 
 teardown:
 	$(KIND) delete cluster --name $(CLUSTER_NAME)

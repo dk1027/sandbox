@@ -1,5 +1,7 @@
 # Agent Instructions
 
+## Agent environment
+
 You are running inside the `hermes` container. The repo is mounted at:
 
 ```text
@@ -7,6 +9,8 @@ You are running inside the `hermes` container. The repo is mounted at:
 ```
 
 Use that directory as the working tree when editing code or running tests.
+
+When the agent needs to install a new dependency and has insufficient permissions, stop and ask the user for help
 
 ## Image build and push
 

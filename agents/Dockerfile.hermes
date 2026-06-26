@@ -1,5 +1,3 @@
-FROM moby/buildkit:rootless AS buildkit
-
 FROM nousresearch/hermes-agent:latest
 
 # Keep the container user aligned with the host so files in bind mounts stay
@@ -16,10 +14,6 @@ ARG KUBECTL_VERSION=stable
 ARG HELM_VERSION=latest
 
 USER root
-
-# Bring in the buildctl client from the official BuildKit image. The daemon
-# runs as a separate Compose service.
-COPY --from=buildkit /usr/bin/buildctl /usr/local/bin/buildctl
 
 # Install the Docker buildx plugin so the container can use either Docker or
 # a remote BuildKit backend depending on the configured builder.

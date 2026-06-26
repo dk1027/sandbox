@@ -66,10 +66,18 @@ What this does under the hood:
 
 ## Development Workflow
 
-Images default to the TLS registry at `ryzen.local:5001` and tag `dev`. Override with `REGISTRY` and `IMAGE_TAG` as needed:
+Images default to the TLS registry at `ryzen.local:5001` and tag `dev`. Override with `REGISTRY`, `IMAGE_TAG`, `IMAGE_PLATFORM`, and `BUILD_BACKEND` as needed.
+
+`BUILD_BACKEND` defaults to `auto`:
+- `auto` uses the remote buildx/BuildKit backend when `BUILDKIT_HOST` is set, which matches the Hermes container and `agents/docker-compose.yml`
+- `docker` forces the local Docker daemon path via `docker buildx build --load`
+- `buildkit` forces the remote BuildKit path via `docker buildx build --push` or OCI export for build-only runs
+
+Examples:
 
 ```bash
-make build-and-push IMAGE_TAG=$(git rev-parse --short HEAD)
+make buildpush IMAGE_TAG=$(git rev-parse --short HEAD)
+BUILD_BACKEND=buildkit make buildpush IMAGE_TAG=$(git rev-parse --short HEAD)
 ```
 
 If you modify the Python application code in `src/producer/producer.py` or `src/consumer/consumer.py`, rebuild, push, deploy, and restart the deployments with:
@@ -87,8 +95,8 @@ make redeploy-chaos-monkey
 Or run the build and deploy steps individually:
 
 ```bash
-make build-chaos-monkey-image
-make push-chaos-monkey-image
+make build-chaos-monkey
+make push-chaos-monkey
 make deploy-chaos-monkey
 ```
 
