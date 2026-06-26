@@ -10,218 +10,191 @@ metadata:
 data:
   kafka-cluster-health.json: |
     {
-        "uid": "kafka-cluster-health",
-        "title": "Kafka Cluster Health",
-        "tags": [
-            "kafka",
-            "strimzi",
-            "observability"
-        ],
-        "timezone": "browser",
-        "schemaVersion": 39,
-        "version": 1,
-        "refresh": "10s",
-        "time": {
-            "from": "now-1h",
-            "to": "now"
-        },
-        "panels": [
-            {
-                "id": 1,
-                "title": "Messages In/Out per Second",
-                "type": "timeseries",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 0,
-                    "y": 0
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "sum(rate(kafka_server_brokertopicmetrics_messagesinpersec_15min[5m])) by (topic)"
-                    },
-                    {
-                        "refId": "B",
-                        "expr": "sum(rate(kafka_server_brokertopicmetrics_messagesoutpersec_15min[5m])) by (topic)"
-                    }
-                ],
-                "fieldConfig": {
-                    "defaults": {
-                        "legend": {
-                            "calcs": [
-                                "mean",
-                                "max"
-                            ]
-                        }
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "title": "Under-Replicated Partitions",
-                "type": "timeseries",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 12,
-                    "y": 0
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "sum(kafka_server_replicamanager_underreplicatedpartitions) by (id)"
-                    }
-                ],
-                "fieldConfig": {
-                    "defaults": {
-                        "thresholds": {
-                            "steps": [
-                                {
-                                    "color": "green",
-                                    "value": null
-                                },
-                                {
-                                    "color": "red",
-                                    "value": 1
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            {
-                "id": 3,
-                "title": "Bytes In/Out per Second",
-                "type": "timeseries",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 0,
-                    "y": 8
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "sum(rate(kafka_server_brokertopicmetrics_bytesinpersec_15min[5m])) by (topic)"
-                    },
-                    {
-                        "refId": "B",
-                        "expr": "sum(rate(kafka_server_brokertopicmetrics_bytesoutpersec_15min[5m])) by (topic)"
-                    }
-                ],
-                "fieldConfig": {
-                    "defaults": {
-                        "unit": "Bps"
-                    }
-                }
-            },
-            {
-                "id": 4,
-                "title": "Consumer Group Lag",
-                "type": "timeseries",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 12,
-                    "y": 8
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "sum(kafka_consumergroup_lag) by (group_id, topic)"
-                    }
+      "uid": "kafka-cluster-health",
+      "title": "Kafka Cluster Health",
+      "tags": ["kafka", "strimzi", "sre"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 2,
+      "refresh": "10s",
+      "time": { "from": "now-3h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Under-Replicated Partitions",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "sum(kafka_server_replicamanager_underreplicatedpartitions)" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
                 ]
-            },
-            {
-                "id": 5,
-                "title": "Active Controller Count",
-                "type": "stat",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 4,
-                    "w": 6,
-                    "x": 0,
-                    "y": 16
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "kafka_controller_kafkacontroller_activecontrollercount"
-                    }
-                ]
-            },
-            {
-                "id": 6,
-                "title": "ISR Shrink Rate",
-                "type": "timeseries",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 4,
-                    "w": 6,
-                    "x": 6,
-                    "y": 16
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "sum(rate(kafka_server_replicamanager_isrshrinkspersec_15min[5m])) by (id)"
-                    }
-                ]
-            },
-            {
-                "id": 7,
-                "title": "Request Handler Idle Ratio",
-                "type": "timeseries",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 0,
-                    "y": 20
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "avg(kafka_server_kafkarequesthandlerpool_requesthandlermaxidlepercent) by (id)"
-                    }
-                ],
-                "fieldConfig": {
-                    "defaults": {
-                        "unit": "percent",
-                        "min": 0,
-                        "max": 100
-                    }
-                }
-            },
-            {
-                "id": 8,
-                "title": "Network Processor Idle Ratio",
-                "type": "timeseries",
-                "datasource": "Prometheus",
-                "gridPos": {
-                    "h": 8,
-                    "w": 12,
-                    "x": 12,
-                    "y": 20
-                },
-                "targets": [
-                    {
-                        "refId": "A",
-                        "expr": "avg(kafka_network_socketserver_networkprocessoridlepercent) by (id)"
-                    }
-                ],
-                "fieldConfig": {
-                    "defaults": {
-                        "unit": "percent",
-                        "min": 0,
-                        "max": 100
-                    }
-                }
+              }
             }
-        ]
+          },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+        },
+        {
+          "id": 2,
+          "title": "Offline Partitions",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "sum(kafka_controller_kafkacontroller_offlinepartitionscount)" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            }
+          },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+        },
+        {
+          "id": 3,
+          "title": "Active Controller Count",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "sum(kafka_controller_kafkacontroller_activecontrollercount)" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "green", "value": 1 },
+                  { "color": "red", "value": 2 }
+                ]
+              }
+            }
+          },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+        },
+        {
+          "id": 4,
+          "title": "Consumer Lag",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "sum(kafka_consumergroup_lag)" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 100 },
+                  { "color": "red", "value": 1000 }
+                ]
+              }
+            }
+          },
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" }
+        },
+        {
+          "id": 5,
+          "title": "Messages In/Out",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+          "targets": [
+            { "refId": "A", "expr": "sum(rate(kafka_server_brokertopicmetrics_messagesin_total[5m]))", "legendFormat": "in" },
+            { "refId": "B", "expr": "sum(rate(kafka_server_brokertopicmetrics_messagesout_total[5m]))", "legendFormat": "out" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops" } }
+        },
+        {
+          "id": 6,
+          "title": "Bytes In/Out",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+          "targets": [
+            { "refId": "A", "expr": "sum(rate(kafka_server_brokertopicmetrics_bytesin_total[5m]))", "legendFormat": "in" },
+            { "refId": "B", "expr": "sum(rate(kafka_server_brokertopicmetrics_bytesout_total[5m]))", "legendFormat": "out" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "Bps" } }
+        },
+        {
+          "id": 7,
+          "title": "Consumer Lag by Group and Topic",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+          "targets": [
+            { "refId": "A", "expr": "topk(10, sum(kafka_consumergroup_lag) by (consumergroup, topic))", "legendFormat": "{{ consumergroup }} / {{ topic }}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "id": 8,
+          "title": "Replication Health",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+          "targets": [
+            { "refId": "A", "expr": "sum(kafka_server_replicamanager_underreplicatedpartitions) by (strimzi_io_name)", "legendFormat": "under replicated {{ strimzi_io_name }}" },
+            { "refId": "B", "expr": "sum(rate(kafka_server_replicamanager_isrshrinks_total[5m]))", "legendFormat": "ISR shrinks/sec" },
+            { "refId": "C", "expr": "sum(rate(kafka_server_replicamanager_isrexpands_total[5m]))", "legendFormat": "ISR expands/sec" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "id": 9,
+          "title": "Broker Load",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+          "targets": [
+            { "refId": "A", "expr": "sum(kafka_server_replicamanager_partitioncount) by (strimzi_io_name)", "legendFormat": "partitions {{ strimzi_io_name }}" },
+            { "refId": "B", "expr": "sum(kafka_server_replicamanager_leadercount) by (strimzi_io_name)", "legendFormat": "leaders {{ strimzi_io_name }}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short" } }
+        },
+        {
+          "id": 10,
+          "title": "Thread Pool Idle",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+          "targets": [
+            { "refId": "A", "expr": "avg(kafka_server_kafkarequesthandlerpool_requesthandleravgidle_percent) by (strimzi_io_name)", "legendFormat": "request handler {{ strimzi_io_name }}" },
+            { "refId": "B", "expr": "avg(kafka_network_socketserver_networkprocessoravgidle_percent) by (strimzi_io_name)", "legendFormat": "network processor {{ strimzi_io_name }}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+        },
+        {
+          "id": 11,
+          "title": "Request Latency p99",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+          "targets": [
+            { "refId": "A", "expr": "max(kafka_network_requestmetrics_totaltimems{quantile=\"0.99\"}) by (request)", "legendFormat": "{{ request }}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ms" } }
+        }
+      ]
     }

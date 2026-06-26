@@ -134,8 +134,8 @@ Phase 1 is the highest-impact quick win — Strimzi already ships the JMX export
 | File | Action |
 |---|---|
 | `deploy/manifests/kafka/kafka-cluster.yaml` | Add `metricsConfig` with JMX exporter |
-| `deploy/manifests/kafka/kafka-servicemonitor.yaml` | New — ServiceMonitor for Kafka JMX |
-| `deploy/manifests/kafka/schema-registry-servicemonitor.yaml` | New — ServiceMonitor for Schema Registry |
+| `deploy/manifests/kafka/kafka-servicemonitor.yaml` | New — PodMonitor for Kafka JMX |
+| `deploy/manifests/kafka/kafka-exporter-servicemonitor.yaml` | New — ServiceMonitor for Kafka Exporter |
 | `deploy/values/prometheus-values.yaml` | Add `prometheusRule` config, Loki datasource |
 | `deploy/manifests/monitoring/alerting-rules.yaml` | New — PrometheusRule CRD |
 | `deploy/manifests/monitoring/loki-stack-values.yaml` | New — Loki Helm values |

@@ -74,13 +74,13 @@ setup-strimzi:
 
 setup-kafka:
 	$(KUBECTL) wait --for=condition=established --timeout=60s crd/kafkas.kafka.strimzi.io
+	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-metrics-configmap.yaml -n kafka
 	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-cluster.yaml -n kafka
 	$(KUBECTL) apply -f deploy/manifests/kafka/schema-registry.yaml -n kafka
 	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-ui.yaml -n kafka
 	# Apply ServiceMonitors for Kafka components
 	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-servicemonitor.yaml -n kafka
-	$(KUBECTL) apply -f deploy/manifests/kafka/schema-registry-servicemonitor.yaml -n kafka
-	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-ui-servicemonitor.yaml -n kafka
+	$(KUBECTL) apply -f deploy/manifests/kafka/kafka-exporter-servicemonitor.yaml -n kafka
 
 setup-monitoring:
 	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts

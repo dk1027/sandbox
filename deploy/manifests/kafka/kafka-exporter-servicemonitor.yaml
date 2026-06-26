@@ -1,18 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: kafka-ui
+  name: kafka-exporter
   namespace: kafka
   labels:
     release: prometheus
 spec:
   selector:
     matchLabels:
-      app: kafka-ui
+      strimzi.io/cluster: my-cluster
+      strimzi.io/name: my-cluster-kafka-exporter
   namespaceSelector:
     matchNames:
       - kafka
   endpoints:
-    - targetPort: 8080
-      interval: 30s
+    - port: tcp-prometheus
+      interval: 15s
       path: /metrics

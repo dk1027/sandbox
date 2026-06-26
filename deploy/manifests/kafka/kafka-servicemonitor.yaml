@@ -1,5 +1,5 @@
 apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+kind: PodMonitor
 metadata:
   name: kafka-broker
   namespace: kafka
@@ -7,13 +7,30 @@ metadata:
     release: prometheus
 spec:
   selector:
-    matchLabels:
-      strimzi.io/cluster: my-cluster
-      strimzi.io/component: kafka
+    matchExpressions:
+      - key: strimzi.io/kind
+        operator: In
+        values:
+          - Kafka
   namespaceSelector:
     matchNames:
       - kafka
-  endpoints:
-    - port: metrics
+  podMetricsEndpoints:
+    - port: tcp-prometheus
       interval: 15s
       path: /metrics
+      relabelings:
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(strimzi_io_.+)
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_namespace
+          targetLabel: namespace
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_name
+          targetLabel: kubernetes_pod_name
+        - action: replace
+          sourceLabels:
+            - __meta_kubernetes_pod_node_name
+          targetLabel: node_name

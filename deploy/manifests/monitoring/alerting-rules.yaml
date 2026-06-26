@@ -21,23 +21,23 @@ spec:
 
         # Consumer lag high
         - alert: KafkaConsumerLagHigh
-          expr: rate(kafka_consumergroup_currentoffset[5m]) - rate(kafka_consumergroup_logendoffset[5m]) > 1000
+          expr: sum(kafka_consumergroup_lag) by (consumergroup, topic) > 1000
           for: 5m
           labels:
             severity: warning
           annotations:
             summary: "Kafka consumer lag is high"
-            description: "Consumer group {{ $labels.group_id }} on topic {{ $labels.topic }} has lag of {{ $value }}."
+            description: "Consumer group {{ $labels.consumergroup }} on topic {{ $labels.topic }} has lag of {{ $value }}."
 
         # Broker down
         - alert: KafkaBrokerDown
-          expr: absent(up{job="kafka-broker"} == 1)
+          expr: count(kafka_server_replicamanager_leadercount) < 3
           for: 1m
           labels:
             severity: critical
           annotations:
             summary: "Kafka broker is down"
-            description: "Kafka broker {{ $labels.instance }} has stopped reporting metrics."
+            description: "Fewer than 3 Kafka brokers are reporting ReplicaManager metrics."
 
         # Producer publish failures
         - alert: ProducerPublishFailures

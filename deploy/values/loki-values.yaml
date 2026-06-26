@@ -1,65 +1,53 @@
-# Grafana Loki stack via grafana/loki Helm chart
-# Battle-tested: https://github.com/grafana/helm-charts/tree/main/charts/loki
+# Grafana Loki via the grafana/loki Helm chart.
+# Keep these values aligned with chart 7.x: deployment mode is top-level and
+# Loki config should use structured chart values instead of overriding
+# loki.config with a raw map.
+
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+
+read:
+  replicas: 0
+
+write:
+  replicas: 0
+
+backend:
+  replicas: 0
 
 loki:
-  deploymentMode: SingleBinary
-  singleBinary:
-    replicas: 1
-    storage:
-      type: Filesystem
-      filesystem:
-        directory: /var/loki
-      volumeClaimTemplate:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 10Gi
-  config:
-    auth_enabled: false
-    storage:
-      type: filesystem
-    common:
-      path_prefix: /var/loki
-    ingester:
-      lifecycler:
-        address: 127.0.0.1
-        ring:
-          kvstore:
-            store: inmemory
-          replication_factor: 1
-      chunk_block_size: 131072
-      chunk_encoding: snappy
-    limits_config:
-      enforce_metric_name: false
-      reject_old_samples: true
-      reject_old_samples_max_age: 168h
-      max_cache_freshness_per_query: 10m
-      retention_period: 72h
-    schema_config:
-      configs:
-        - from: "2024-01-01"
-          store: tsdb
-          object_store: filesystem
-          schema: v13
-          index:
-            prefix: index_
-            period: 24h
-    analytics:
-      reporting_ingester_memory: false
+  auth_enabled: false
+  commonConfig:
+    path_prefix: /var/loki
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  limits_config:
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+    max_cache_freshness_per_query: 10m
+    retention_period: 72h
+  analytics:
+    reporting_enabled: false
 
-# Promtail as DaemonSet to collect all container logs
-promtail:
-  enabled: true
-  config:
-    clients:
-      - url: http://loki-gateway.logging.svc.cluster.local/loki/api/v1/push
-    snippets:
-      pipelineStagesBefore:
-        - docker: {}
-      pipelineStagesAfter: []
-  extraPorts:
-    - name: http-oob
-      port: 80
-      targetPort: 80
-  networkPolicy:
-    enabled: false
+chunksCache:
+  enabled: false
+
+resultsCache:
+  enabled: false
