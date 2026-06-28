@@ -169,7 +169,8 @@ old `certificate-authority-data` value will produce TLS errors like `x509:
 certificate signed by unknown authority`.
 
 The repo now includes a helper target that prints a fresh kubeconfig with the
-server already rewritten and the CA refreshed from the control-plane node:
+server already rewritten and the CA refreshed from the control-plane node. The
+CA is embedded in the file, so it can be copied to the MacBook directly:
 
 ```bash
 mkdir -p ~/.kube/kind-ryzen

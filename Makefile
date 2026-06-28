@@ -58,7 +58,8 @@ kubeconfig:
 	$(KUBECTL) config view --raw --flatten --minify > "$$tmp_kubeconfig"; \
 	kubectl --kubeconfig "$$tmp_kubeconfig" config set-cluster "$(KUBE_CONTEXT)" \
 		--server="https://$(REGISTRY_HOST):$(API_SERVER_PORT)" \
-		--certificate-authority="$$tmp_ca" >/dev/null; \
+		--certificate-authority="$$tmp_ca" \
+		--embed-certs=true >/dev/null; \
 	cat "$$tmp_kubeconfig"; \
 	rm -f "$$tmp_kubeconfig" "$$tmp_ca"'
 
