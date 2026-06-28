@@ -32,7 +32,10 @@ SRE_AGENT_RELEASE ?= sre-agent$(if $(filter-out sre-agent,$(SRE_AGENT_APP_NAME))
 # Install the full application stack into an already bootstrapped Kind cluster.
 # Cluster creation, node limits, the TLS registry, and ingress-nginx are owned by
 # infra/kind/bootstrap-kind-cluster.sh.
-all: buildpush setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards
+#
+# setup-monitoring runs before setup-kafka because the Kafka manifests include
+# ServiceMonitor/PodMonitor resources that require the monitoring CRDs.
+all: buildpush setup-strimzi setup-monitoring setup-kafka setup-logging setup-alerting setup-tracing deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards
 
 bootstrap-cluster:
 	infra/kind/bootstrap-kind-cluster.sh
@@ -109,6 +112,8 @@ setup-strimzi:
 	$(HELM) repo add strimzi https://strimzi.io/charts/
 	$(HELM) repo update
 	$(HELM) upgrade --install strimzi-cluster-operator strimzi/strimzi-kafka-operator --namespace kafka --create-namespace
+
+setup-kafka: setup-monitoring
 
 setup-kafka:
 	$(KUBECTL) wait --for=condition=established --timeout=60s crd/kafkas.kafka.strimzi.io
