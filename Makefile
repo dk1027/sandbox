@@ -45,22 +45,22 @@ recreate-cluster:
 # node. This is intended for refreshing MacBook/local kubeconfigs after
 # `recreate-cluster` regenerates the cluster CA.
 kubeconfig:
-	@set -euo pipefail; \
+	@bash -lc 'set -euo pipefail; \
 	tmp_kubeconfig="$$(mktemp)"; \
 	tmp_ca="$$(mktemp)"; \
-	control_plane_node="$$(kind get nodes --name "$(CLUSTER_NAME)" | grep -- '-control-plane$$' | head -n1)"; \
-	if [ -z "$$control_plane_node" ]; then \
+	control_plane_node="$$(kind get nodes --name "$(CLUSTER_NAME)" | grep -- "-control-plane$$" | head -n1)"; \
+	if [[ -z "$$control_plane_node" ]]; then \
 		echo "Could not find the control-plane node for cluster $(CLUSTER_NAME)" >&2; \
 		rm -f "$$tmp_kubeconfig" "$$tmp_ca"; \
 		exit 1; \
 	fi; \
-	docker exec "$$control_plane_node" sh -c 'cat /etc/kubernetes/pki/ca.crt' > "$$tmp_ca"; \
+	docker exec "$$control_plane_node" sh -c "cat /etc/kubernetes/pki/ca.crt" > "$$tmp_ca"; \
 	$(KUBECTL) config view --raw --flatten --minify > "$$tmp_kubeconfig"; \
 	kubectl --kubeconfig "$$tmp_kubeconfig" config set-cluster "$(KUBE_CONTEXT)" \
 		--server="https://$(REGISTRY_HOST):$(API_SERVER_PORT)" \
 		--certificate-authority="$$tmp_ca" >/dev/null; \
 	cat "$$tmp_kubeconfig"; \
-	rm -f "$$tmp_kubeconfig" "$$tmp_ca"
+	rm -f "$$tmp_kubeconfig" "$$tmp_ca"'
 
 # Backward-compatible alias. Prefer `make bootstrap-cluster` or
 # `make recreate-cluster` so destructive cluster recreation is explicit.
