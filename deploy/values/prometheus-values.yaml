@@ -121,11 +121,11 @@ grafana:
           options:
             path: /var/lib/grafana/dashboards/default
   # Add Loki and Tempo as datasources once deployed
-  additionalDataSources: |
+  additionalDataSources:
     - name: Loki
       type: loki
       access: proxy
-      url: http://loki-gateway.logging.svc.cluster.local:3100
+      url: http://loki.logging.svc.cluster.local:3100
       isDefault: false
       editable: true
     - name: Tempo

@@ -51,3 +51,9 @@ chunksCache:
 
 resultsCache:
   enabled: false
+
+gateway:
+  enabled: false
+
+ingress:
+  enabled: false
