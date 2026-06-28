@@ -71,7 +71,7 @@ If you recreate the cluster, refresh any copied kubeconfig with:
 ssh ltse@ryzen.local 'cd /opt/data/src/github.com/dk1027/sandbox && make kubeconfig' > ~/.kube/kind-ryzen/dev-cluster.yaml
 ```
 
-That target emits a kubeconfig with the API server already rewritten to `https://ryzen.local:6443`, so the file can be used directly from the MacBook.
+That target emits a kubeconfig with the API server already rewritten to `https://ryzen.local:6443` and refreshes the cluster CA from the current control-plane node, so it can be used directly from the MacBook even after `make recreate-cluster`.
 
 ---
 
