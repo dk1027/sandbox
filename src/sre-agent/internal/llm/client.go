@@ -9,6 +9,8 @@ import (
     "net/http"
     "strings"
     "time"
+
+    "sre-agent/internal/observability"
 )
 
 type ChatMessage struct {
@@ -52,7 +54,16 @@ func NewClient(baseURL, apiKey string, httpClient *http.Client) *Client {
     return &Client{baseURL: strings.TrimRight(baseURL, "/"), apiKey: apiKey, httpClient: httpClient}
 }
 
-func (c *Client) ChatCompletion(ctx context.Context, req ChatRequest) (Decision, error) {
+func (c *Client) ChatCompletion(ctx context.Context, req ChatRequest) (decision Decision, err error) {
+    start := time.Now()
+    defer func() {
+        result := "success"
+        if err != nil {
+            result = "error"
+        }
+        observability.ObserveLLM(result, time.Since(start))
+    }()
+
     body, err := json.Marshal(req)
     if err != nil {
         return Decision{}, fmt.Errorf("marshal request: %w", err)
@@ -94,7 +105,6 @@ func (c *Client) ChatCompletion(ctx context.Context, req ChatRequest) (Decision,
         return Decision{}, fmt.Errorf("llm response missing choices")
     }
 
-    var decision Decision
     if err := json.Unmarshal([]byte(envelope.Choices[0].Message.Content), &decision); err != nil {
         return Decision{}, fmt.Errorf("decode decision: %w", err)
     }

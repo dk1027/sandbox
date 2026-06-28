@@ -13,8 +13,71 @@ prometheus:
             requests:
               storage: 10Gi
 
-# Alertmanager keeps default config (no receivers needed for local dev)
 alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: "null"
+      group_by:
+        - namespace
+        - app
+        - alertname
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      routes:
+        - receiver: "null"
+          matchers:
+            - alertname = "Watchdog"
+        - receiver: producer-sre-agent
+          matchers:
+            - namespace = "apps"
+            - app = "producer"
+        - receiver: consumer-sre-agent
+          matchers:
+            - namespace = "apps"
+            - app = "consumer"
+        - receiver: sre-agent
+          matchers:
+            - namespace = "apps"
+    inhibit_rules:
+      - source_matchers:
+          - severity = critical
+        target_matchers:
+          - severity =~ warning|info
+        equal:
+          - namespace
+          - alertname
+      - source_matchers:
+          - severity = warning
+        target_matchers:
+          - severity = info
+        equal:
+          - namespace
+          - alertname
+      - source_matchers:
+          - alertname = InfoInhibitor
+        target_matchers:
+          - severity = info
+        equal:
+          - namespace
+      - target_matchers:
+          - alertname = InfoInhibitor
+    receivers:
+      - name: "null"
+      - name: producer-sre-agent
+        webhook_configs:
+          - url: http://sre-agent-producer.apps.svc.cluster.local:8080/alerts
+            send_resolved: true
+      - name: consumer-sre-agent
+        webhook_configs:
+          - url: http://sre-agent-consumer.apps.svc.cluster.local:8080/alerts
+            send_resolved: true
+      - name: sre-agent
+        webhook_configs:
+          - url: http://sre-agent.apps.svc.cluster.local:8080/alerts
+            send_resolved: true
   alertmanagerSpec:
     storage:
       volumeClaimTemplate:

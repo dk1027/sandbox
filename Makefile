@@ -12,8 +12,9 @@ HELM ?= helm --kube-context $(KUBE_CONTEXT)
 DOCKER ?= docker
 KIND ?= kind
 SRE_AGENT_NAMESPACE ?= apps
+SRE_AGENT_APP_NAME ?= sre-agent
 SRE_AGENT_APP_NAMESPACE ?= $(SRE_AGENT_NAMESPACE)
-SRE_AGENT_RELEASE ?= sre-agent-$(SRE_AGENT_APP_NAME)
+SRE_AGENT_RELEASE ?= sre-agent$(if $(filter-out sre-agent,$(SRE_AGENT_APP_NAME)),-$(SRE_AGENT_APP_NAME),)
 
 .PHONY: all \
 	bootstrap-cluster recreate-cluster cluster apply-limits teardown \
@@ -144,6 +145,7 @@ deploy-dashboards:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/kafka-dashboard.yaml
 	$(KUBECTL) apply -f deploy/manifests/monitoring/pipeline-dashboard.yaml
 	$(KUBECTL) apply -f deploy/manifests/monitoring/cluster-resources-dashboard.yaml
+	$(KUBECTL) apply -f deploy/manifests/monitoring/sre-agent-dashboard.yaml
 
 check: check-python
 

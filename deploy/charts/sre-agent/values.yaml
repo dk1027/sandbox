@@ -14,9 +14,24 @@ replicaCount: 1
 listenAddr: ":8080"
 
 llm:
-  baseUrl: http://host.docker.internal:8080/v1
+  # The sidecar proxies to the host MLX/OpenAI-compatible service. Kubernetes
+  # pods do not resolve the MacBook's mDNS name by default, so the deployment
+  # also injects a host alias for the dev host name.
+  baseUrl: http://127.0.0.1:8081/v1
   model: gpt-4o-mini
-  apiKey: EMPTY
+  apiKey: "***"
+  sidecar:
+    enabled: true
+    image: python:3.14-slim
+    pullPolicy: IfNotPresent
+    port: 8081
+    upstreamBaseUrl: http://longs-macbook-pro.local:8080
+    upstreamTimeoutSeconds: 180
+
+podHostAliases:
+  - ip: 192.168.1.77
+    hostnames:
+      - longs-macbook-pro.local
 
 observability:
   prometheusUrl: http://prometheus-operated.monitoring.svc.cluster.local:9090
@@ -56,7 +71,7 @@ rbac:
       verbs: ["get", "list", "watch"]
     - apiGroups: ["apps"]
       resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
-      verbs: ["get", "list", "watch"]
+      verbs: ["get", "list", "watch", "patch", "update"]
     - apiGroups: ["batch"]
       resources: ["jobs", "cronjobs"]
       verbs: ["get", "list", "watch"]

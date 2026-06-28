@@ -49,6 +49,8 @@ spec:
           for: 5m
           labels:
             severity: warning
+            app: producer
+            namespace: apps
           annotations:
             summary: "Producer publish failure rate > 10%"
             description: "Producer failure rate is {{ $value | humanizePercentage }} over 5 minutes."
@@ -59,9 +61,39 @@ spec:
           for: 5m
           labels:
             severity: warning
+            app: consumer
+            namespace: apps
           annotations:
             summary: "Consumer throughput has dropped to zero"
             description: "No messages consumed in the last 5 minutes."
+
+    - name: sre-agent.rules
+      rules:
+        - alert: SREAgentWebhookErrors
+          expr: sum(increase(sre_agent_webhook_requests_total{outcome="error"}[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            app: sre-agent
+            namespace: apps
+          annotations:
+            summary: "SRE-agent webhook requests are failing"
+            description: "The SRE-agent has returned one or more webhook errors in the last 5 minutes."
+
+        - alert: SREAgentEscalationSpike
+          expr: |
+            sum(rate(sre_agent_webhook_requests_total{outcome="processed",action_status="escalated"}[10m]))
+            /
+            clamp_min(sum(rate(sre_agent_webhook_requests_total{outcome="processed"}[10m])), 1)
+            > 0.5
+          for: 10m
+          labels:
+            severity: warning
+            app: sre-agent
+            namespace: apps
+          annotations:
+            summary: "SRE-agent is escalating most alerts"
+            description: "More than half of processed alerts have been escalated over the last 10 minutes."
 
     - name: chaos.rules
       rules:

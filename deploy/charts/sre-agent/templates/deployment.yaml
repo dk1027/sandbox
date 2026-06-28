@@ -21,6 +21,10 @@ spec:
       annotations:
         {{- toYaml .Values.podAnnotations | nindent 8 }}
     spec:
+      {{- with .Values.podHostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccountName: {{ include "sre-agent.serviceAccountName" . }}
       containers:
         - name: sre-agent
@@ -48,3 +52,40 @@ spec:
             periodSeconds: 20
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        {{- if .Values.llm.sidecar.enabled }}
+        - name: llm-server
+          image: "{{ .Values.llm.sidecar.image }}"
+          imagePullPolicy: {{ .Values.llm.sidecar.pullPolicy }}
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - python3 /opt/llm/openai_server.py --host 0.0.0.0 --port {{ .Values.llm.sidecar.port }}
+          env:
+            - name: UPSTREAM_BASE_URL
+              value: {{ .Values.llm.sidecar.upstreamBaseUrl | quote }}
+            - name: UPSTREAM_TIMEOUT_SECONDS
+              value: {{ .Values.llm.sidecar.upstreamTimeoutSeconds | quote }}
+            - name: UPSTREAM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sre-agent.fullname" . }}-secret
+                  key: LLM_API_KEY
+          ports:
+            - name: llm
+              containerPort: {{ .Values.llm.sidecar.port }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: llm
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          volumeMounts:
+            - name: llm-server-script
+              mountPath: /opt/llm/openai_server.py
+              subPath: openai_server.py
+        {{- end }}
+      volumes:
+        - name: llm-server-script
+          configMap:
+            name: {{ include "sre-agent.fullname" . }}-llm-server

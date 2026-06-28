@@ -4,18 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"sre-agent/internal/alert"
 	"sre-agent/internal/config"
 	"sre-agent/internal/llm"
+	"sre-agent/internal/observability"
 )
 
 type Service struct {
 	cfg        config.Config
 	llm        LLMClient
 	remediator Remediator
+	collector  observability.ContextCollector
 }
 
 type LLMClient interface {
@@ -27,25 +31,41 @@ type Remediator interface {
 }
 
 type Result struct {
-	Outcome        string       `json:"outcome"`
-	Classification string       `json:"classification,omitempty"`
-	ActionStatus   string       `json:"action_status,omitempty"`
-	SkippedReason  string       `json:"skipped_reason,omitempty"`
-	GuardrailReason string      `json:"guardrail_reason,omitempty"`
-	Alert          alert.Signal `json:"alert,omitempty"`
-	Decision       llm.Decision `json:"decision,omitempty"`
-	AppliedActions []llm.Action  `json:"applied_actions,omitempty"`
+	Outcome         string       `json:"outcome"`
+	Classification  string       `json:"classification,omitempty"`
+	ActionStatus    string       `json:"action_status,omitempty"`
+	SkippedReason   string       `json:"skipped_reason,omitempty"`
+	GuardrailReason string       `json:"guardrail_reason,omitempty"`
+	Alert           alert.Signal `json:"alert,omitempty"`
+	Decision        llm.Decision `json:"decision,omitempty"`
+	AppliedActions  []llm.Action `json:"applied_actions,omitempty"`
 }
 
 func NewService(cfg config.Config, client LLMClient) *Service {
-	return &Service{cfg: cfg, llm: client}
+	return &Service{cfg: cfg, llm: client, collector: observability.NewContextCollector(cfg, &http.Client{Timeout: 5 * time.Second})}
 }
 
 func NewServiceWithRemediator(cfg config.Config, client LLMClient, remediator Remediator) *Service {
-	return &Service{cfg: cfg, llm: client, remediator: remediator}
+	return &Service{cfg: cfg, llm: client, remediator: remediator, collector: observability.NewContextCollector(cfg, &http.Client{Timeout: 5 * time.Second})}
 }
 
-func (s *Service) HandleWebhook(ctx context.Context, payload []byte) (Result, error) {
+func (s *Service) HandleWebhook(ctx context.Context, payload []byte) (result Result, err error) {
+	start := time.Now()
+	defer func() {
+		if err != nil {
+			if result.Outcome == "" {
+				result.Outcome = "error"
+			}
+			if result.Classification == "" {
+				result.Classification = "error"
+			}
+			if result.ActionStatus == "" {
+				result.ActionStatus = "error"
+			}
+		}
+		observability.ObserveWebhook(time.Since(start), result.Outcome, result.Classification, result.ActionStatus)
+	}()
+
 	signals, err := alert.ParseWebhook(payload)
 	if err != nil {
 		return Result{}, err
@@ -56,19 +76,25 @@ func (s *Service) HandleWebhook(ctx context.Context, payload []byte) (Result, er
 		}
 		classification, reason := classifySignal(signal)
 		if classification != "actionable" {
-			return Result{
+			result = Result{
 				Outcome:        "ignored",
 				Classification: classification,
 				SkippedReason:  reason,
 				Alert:          signal,
-			}, nil
+			}
+			return result, nil
+		}
+
+		evidence := observability.PromptEvidence{}
+		if s.collector != nil {
+			evidence = s.collector.Collect(ctx, signal)
 		}
 
 		decision, err := s.llm.ChatCompletion(ctx, llm.ChatRequest{
 			Model: s.cfg.LLMModel,
 			Messages: []llm.ChatMessage{
-				{Role: "system", Content: "You are an SRE agent. Return one JSON object with summary, diagnosis, confidence, severity, recommended, actions, escalate, and escalation_note. Keep the response deterministic, conservative, and safe."},
-				{Role: "user", Content: buildPrompt(s.cfg, signal)},
+				{Role: "system", Content: "You are an SRE agent. Return one JSON object with summary, diagnosis, confidence, severity, recommended, actions, escalate, and escalation_note. Keep the response deterministic, conservative, and safe. Only emit restart or rollout_restart actions for automated remediation."},
+				{Role: "user", Content: buildPrompt(s.cfg, signal, evidence)},
 			},
 			Temperature: 0,
 			Stream:      false,
@@ -78,12 +104,12 @@ func (s *Service) HandleWebhook(ctx context.Context, payload []byte) (Result, er
 		}
 
 		normalized := normalizeDecision(s.cfg, signal, decision)
-		result := Result{
+		result = Result{
 			Outcome:        "processed",
 			Classification: classification,
 			Alert:          signal,
 			Decision:       normalized,
-			AppliedActions:  append([]llm.Action(nil), normalized.Actions...),
+			AppliedActions: append([]llm.Action(nil), normalized.Actions...),
 		}
 
 		if normalized.Escalate {
@@ -92,6 +118,7 @@ func (s *Service) HandleWebhook(ctx context.Context, payload []byte) (Result, er
 			if result.GuardrailReason == "" {
 				result.GuardrailReason = "policy requires human review"
 			}
+			observability.ObserveGuardrailBlock(result.GuardrailReason)
 			return result, nil
 		}
 
@@ -100,11 +127,13 @@ func (s *Service) HandleWebhook(ctx context.Context, payload []byte) (Result, er
 			if len(normalized.Actions) == 0 {
 				result.ActionStatus = "diagnosed"
 				result.GuardrailReason = "no safe remediation actions were returned"
+				observability.ObserveGuardrailBlock(result.GuardrailReason)
 				return result, nil
 			}
 			if s.remediator == nil {
 				result.ActionStatus = "recommended"
 				result.GuardrailReason = "remediator unavailable"
+				observability.ObserveGuardrailBlock(result.GuardrailReason)
 				return result, nil
 			}
 			if err := s.remediator.Execute(ctx, signal, normalized); err != nil {
@@ -114,15 +143,34 @@ func (s *Service) HandleWebhook(ctx context.Context, payload []byte) (Result, er
 			return result, nil
 		default:
 			result.ActionStatus = "recommended"
+			if len(normalized.Actions) > 0 {
+				observability.ObserveRemediation("recommended", normalized.Actions[0].Type)
+			}
 			return result, nil
 		}
 	}
-	return Result{Outcome: "ignored", SkippedReason: "no in-scope alerts"}, nil
+	result = Result{Outcome: "ignored", SkippedReason: "no in-scope alerts"}
+	return result, nil
 }
 
-func buildPrompt(cfg config.Config, signal alert.Signal) string {
+func buildPrompt(cfg config.Config, signal alert.Signal, evidence observability.PromptEvidence) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "App: %s\nNamespace: %s\nMode: %s\nConfidence threshold: %.2f\n", cfg.AppName, cfg.AppNamespace, cfg.RemediationMode, cfg.ConfidenceThreshold)
+	if cfg.PrometheusURL != "" || cfg.LokiURL != "" || cfg.OTELServiceName != "" || cfg.OTELExporterOTLPEndpoint != "" {
+		fmt.Fprintln(&b, "Observability settings:")
+		if cfg.PrometheusURL != "" {
+			fmt.Fprintf(&b, "- Prometheus URL: %s\n", cfg.PrometheusURL)
+		}
+		if cfg.LokiURL != "" {
+			fmt.Fprintf(&b, "- Loki URL: %s\n", cfg.LokiURL)
+		}
+		if cfg.OTELServiceName != "" {
+			fmt.Fprintf(&b, "- OTEL service name: %s\n", cfg.OTELServiceName)
+		}
+		if cfg.OTELExporterOTLPEndpoint != "" {
+			fmt.Fprintf(&b, "- OTLP endpoint: %s\n", cfg.OTELExporterOTLPEndpoint)
+		}
+	}
 	fmt.Fprintf(&b, "Alert: %s\nSeverity: %s\nStatus: %s\nSummary: %s\n", signal.AlertName, signal.Severity, signal.Status, signal.Summary)
 	if len(signal.Labels) > 0 {
 		labels, _ := json.Marshal(signal.Labels)
@@ -132,13 +180,26 @@ func buildPrompt(cfg config.Config, signal alert.Signal) string {
 		annotations, _ := json.Marshal(signal.Annotations)
 		fmt.Fprintf(&b, "Annotations: %s\n", annotations)
 	}
-	fmt.Fprintln(&b, "Only recommend safe, namespace-scoped, idempotent actions. If the alert is ambiguous, non-actionable, or below confidence threshold, set escalate=true and explain why.")
+	appendSection := func(title string, lines []string) {
+		if len(lines) == 0 {
+			return
+		}
+		fmt.Fprintf(&b, "%s:\n", title)
+		for _, line := range lines {
+			fmt.Fprintf(&b, "- %s\n", line)
+		}
+	}
+	appendSection("Prometheus evidence", evidence.Prometheus)
+	appendSection("Loki evidence", evidence.Loki)
+	appendSection("Kubernetes evidence", evidence.Kubernetes)
+	appendSection("Collection diagnostics", evidence.Diagnostics)
+	fmt.Fprintln(&b, "Only recommend safe, namespace-scoped, idempotent restart or rollout_restart actions. If the alert is ambiguous, non-actionable, below confidence threshold, or the evidence is sparse, set escalate=true and explain why.")
 	fmt.Fprintln(&b, "Return JSON with summary, diagnosis, confidence, severity, recommended, actions, escalate, and escalation_note.")
 	return b.String()
 }
 
 type classificationResult struct {
-	label string
+	label  string
 	reason string
 }
 
@@ -187,6 +248,7 @@ func normalizeDecision(cfg config.Config, signal alert.Signal, decision llm.Deci
 		seen[key] = struct{}{}
 		if !isSafeAction(action) {
 			unsafeActionFound = true
+			observability.ObserveGuardrailBlock("unsafe_action_removed")
 			continue
 		}
 		filtered = append(filtered, action)
@@ -210,6 +272,7 @@ func normalizeDecision(cfg config.Config, signal alert.Signal, decision llm.Deci
 		if decision.EscalationNote == "" {
 			decision.EscalationNote = fmt.Sprintf("confidence %.2f below threshold %.2f", decision.Confidence, cfg.ConfidenceThreshold)
 		}
+		observability.ObserveGuardrailBlock("confidence_below_threshold")
 	}
 	if decision.Summary == "" {
 		decision.Summary = "SRE decision pending"
@@ -228,7 +291,7 @@ func normalizeDecision(cfg config.Config, signal alert.Signal, decision llm.Deci
 
 func isSafeAction(action llm.Action) bool {
 	switch action.Type {
-	case "restart", "rollout_restart", "scale", "notify", "runbook":
+	case "restart", "rollout_restart":
 		return true
 	default:
 		return false

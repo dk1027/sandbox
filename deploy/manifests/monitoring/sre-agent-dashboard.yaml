@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sre-agent-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: sre-agent
+    app.kubernetes.io/component: dashboard
+data:
+  sre-agent-dashboard.json: |
+    {
+      "uid": "sre-agent-observability",
+      "title": "SRE Agent Observability",
+      "tags": ["sre", "sre-agent", "observability"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "15s",
+      "time": { "from": "now-6h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Webhook Outcomes",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            { "refId": "A", "expr": "sum(rate(sre_agent_webhook_requests_total[5m])) by (outcome)", "legendFormat": "{{ outcome }}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops" } }
+        },
+        {
+          "id": 2,
+          "title": "LLM P95 Latency",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum(rate(sre_agent_llm_request_duration_seconds_bucket[5m])) by (le))",
+              "legendFormat": "p95"
+            }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s" } }
+        },
+        {
+          "id": 3,
+          "title": "Remediation Actions",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "targets": [
+            { "refId": "A", "expr": "sum(rate(sre_agent_remediation_actions_total[5m])) by (result)", "legendFormat": "{{ result }}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops" } }
+        },
+        {
+          "id": 4,
+          "title": "Guardrail Blocks",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+          "targets": [
+            { "refId": "A", "expr": "sum(increase(sre_agent_guardrail_blocks_total[1h]))" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 5 }, { "color": "red", "value": 10 }] }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "Webhook Errors",
+          "type": "stat",
+          "datasource": "Prometheus",
+          "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+          "targets": [
+            { "refId": "A", "expr": "sum(increase(sre_agent_webhook_requests_total{outcome=\"error\"}[1h]))" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }, { "color": "red", "value": 5 }] }
+            }
+          }
+        }
+      ]
+    }

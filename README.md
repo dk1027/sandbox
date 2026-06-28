@@ -155,6 +155,8 @@ make grafana-port-forward
 
 5. Log in with username `admin` and the password retrieved above.
 
+For the full operational runbook covering dashboards, logs, and traces, see `deploy/README.md#operational-runbook`.
+
 ### Accessing Kafka UI
 
 To explore Kafka topics, view messages, and manage Schema Registry through a web interface:
