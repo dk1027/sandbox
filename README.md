@@ -56,13 +56,14 @@ make all
 
 What this does under the hood:
 
+0. Builds and pushes all repo images (`make buildpush`).
 1. Installs the Strimzi Operator via Helm (`make setup-strimzi`).
 2. Installs the KRaft-based Kafka cluster, Schema Registry, and Kafka UI (`make setup-kafka`).
 3. Installs the `kube-prometheus-stack` to enable cluster-wide metric scraping (`make setup-monitoring`).
 4. Deploys the Python producer/consumer apps using `deploy/charts/kafka-apps` (`make deploy-apps`).
 5. Deploys the Chaos Monkey controller/daemonset and dashboard (`make deploy-chaos-monkey`, `make deploy-chaos-monkey-dashboard`).
 
-`make all` assumes the cluster already exists and that the referenced application images are available in the registry. Cluster creation, node resource limits, the TLS registry, and ingress-nginx are handled by the bootstrap script.
+`make all` assumes the cluster already exists. Cluster creation, node resource limits, the TLS registry, and ingress-nginx are handled by the bootstrap script.
 
 ---
 

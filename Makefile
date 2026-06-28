@@ -26,10 +26,10 @@ SRE_AGENT_RELEASE ?= sre-agent$(if $(filter-out sre-agent,$(SRE_AGENT_APP_NAME))
 	grafana-port-forward grafana-password kafka-ui-port-forward mcp-port-forward \
 	check check-python
 
-# Install the application stack into an already bootstrapped Kind cluster.
+# Install the full application stack into an already bootstrapped Kind cluster.
 # Cluster creation, node limits, the TLS registry, and ingress-nginx are owned by
 # infra/kind/bootstrap-kind-cluster.sh.
-all: setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards
+all: buildpush setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards
 
 bootstrap-cluster:
 	infra/kind/bootstrap-kind-cluster.sh
