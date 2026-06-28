@@ -162,13 +162,17 @@ kubectl delete pod registry-test
 
 ## MacBook kubectl access
 
-After recreating the cluster, copy the kubeconfig to the MacBook and rewrite the
-server URL to the LAN endpoint:
+After recreating the cluster, copy a fresh kubeconfig to the MacBook and rewrite
+the server URL to the LAN endpoint. Do not reuse an older kubeconfig file after
+`--recreate`: the cluster CA and API server certificate are regenerated, so an
+old `certificate-authority-data` value will produce TLS errors like `x509:
+certificate signed by unknown authority`.
+
+The repo now includes a helper target that prints a fresh kubeconfig with the
+server already rewritten:
 
 ```bash
 mkdir -p ~/.kube/kind-ryzen
-ssh ltse@ryzen.local 'kubectl config view --minify --raw' > ~/.kube/kind-ryzen/dev-cluster.yaml
-kubectl --kubeconfig ~/.kube/kind-ryzen/dev-cluster.yaml \
-  config set-cluster kind-dev-cluster --server=https://ryzen.local:6443
+ssh ltse@ryzen.local 'cd /opt/data/src/github.com/dk1027/sandbox && make kubeconfig' > ~/.kube/kind-ryzen/dev-cluster.yaml
 KUBECONFIG=~/.kube/kind-ryzen/dev-cluster.yaml kubectl get nodes
 ```

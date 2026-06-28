@@ -65,6 +65,14 @@ What this does under the hood:
 
 `make all` assumes the cluster already exists. Cluster creation, node resource limits, the TLS registry, and ingress-nginx are handled by the bootstrap script.
 
+If you recreate the cluster, refresh any copied kubeconfig with:
+
+```bash
+ssh ltse@ryzen.local 'cd /opt/data/src/github.com/dk1027/sandbox && make kubeconfig' > ~/.kube/kind-ryzen/dev-cluster.yaml
+```
+
+That target emits a kubeconfig with the API server already rewritten to `https://ryzen.local:6443`, so the file can be used directly from the MacBook.
+
 ---
 
 ## Development Workflow

@@ -1,6 +1,8 @@
 CLUSTER_NAME ?= dev-cluster
 KUBE_CONTEXT ?= kind-$(CLUSTER_NAME)
 REGISTRY ?= ryzen.local:5001
+REGISTRY_HOST ?= ryzen.local
+API_SERVER_PORT ?= 6443
 IMAGE_TAG ?= dev
 IMAGE_PLATFORM ?= linux/amd64
 LOKI_CHART_VERSION ?= 7.0.0
@@ -18,6 +20,7 @@ SRE_AGENT_RELEASE ?= sre-agent$(if $(filter-out sre-agent,$(SRE_AGENT_APP_NAME))
 
 .PHONY: all \
 	bootstrap-cluster recreate-cluster cluster apply-limits teardown \
+	kubeconfig \
 	build push buildpush \
 	build-apps push-apps build-chaos-monkey push-chaos-monkey build-mcp-server push-mcp-server build-sre-agent push-sre-agent \
 	setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing \
@@ -36,6 +39,16 @@ bootstrap-cluster:
 
 recreate-cluster:
 	infra/kind/bootstrap-kind-cluster.sh --recreate
+
+# Print a fresh kubeconfig for the current Kind cluster with the LAN API server
+# endpoint already rewritten. This is intended for refreshing MacBook/local
+# kubeconfigs after `recreate-cluster` regenerates the cluster CA.
+kubeconfig:
+	@tmp="$$(mktemp)"; \
+	$(KUBECTL) config view --raw --flatten --minify > "$$tmp"; \
+	kubectl --kubeconfig "$$tmp" config set-cluster "$(KUBE_CONTEXT)" --server="https://$(REGISTRY_HOST):$(API_SERVER_PORT)" >/dev/null; \
+	cat "$$tmp"; \
+	rm -f "$$tmp"
 
 # Backward-compatible alias. Prefer `make bootstrap-cluster` or
 # `make recreate-cluster` so destructive cluster recreation is explicit.
