@@ -2,6 +2,8 @@
 
 This chart deploys one isolated SRE-agent instance per application.
 
+For the full retrospective design, see `../../../src/sre-agent/design.md`.
+
 ## Remediation modes
 
 The agent supports two modes:

@@ -25,6 +25,8 @@ Cluster bootstrap is owned by `infra/kind/bootstrap-kind-cluster.sh`. The root `
 
 See `deploy/README.md` for the chart/manifest/value split.
 
+The retroactive design doc for the SRE Agent lives at `src/sre-agent/design.md`.
+
 ---
 
 ## Initializing the Environment
