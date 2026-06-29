@@ -13,8 +13,8 @@ import (
 	"sre-agent/internal/agent"
 	"sre-agent/internal/config"
 	"sre-agent/internal/llm"
-	"sre-agent/internal/remediation"
 	"sre-agent/internal/observability"
+	"sre-agent/internal/remediation"
 )
 
 func main() {

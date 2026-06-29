@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: command-center
+  namespace: monitoring
+  labels:
+    app: command-center
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: command-center
+  template:
+    metadata:
+      labels:
+        app: command-center
+    spec:
+      containers:
+        - name: command-center
+          image: ryzen.local:5001/command-center:dev
+          imagePullPolicy: Always
+          env:
+            - name: APP_NAME
+              value: command-center
+            - name: APP_NAMESPACE
+              value: sre
+            - name: LISTEN_ADDR
+              value: :8090
+          ports:
+            - name: http
+              containerPort: 8090
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 8
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: command-center
+  namespace: monitoring
+  labels:
+    app: command-center
+spec:
+  type: ClusterIP
+  selector:
+    app: command-center
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: command-center
+  namespace: monitoring
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - sre.ryzen.local
+  rules:
+    - host: sre.ryzen.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: command-center
+                port:
+                  number: 8090

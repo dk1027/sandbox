@@ -17,6 +17,7 @@ SRE_AGENT_NAMESPACE ?= apps
 SRE_AGENT_APP_NAME ?= sre-agent
 SRE_AGENT_APP_NAMESPACE ?= $(SRE_AGENT_NAMESPACE)
 SRE_AGENT_RELEASE ?= sre-agent$(if $(filter-out sre-agent,$(SRE_AGENT_APP_NAME)),-$(SRE_AGENT_APP_NAME),)
+SRE_AGENT_VALUES_FILE ?= deploy/charts/sre-agent/values.yaml
 
 .PHONY: all \
 	bootstrap-cluster recreate-cluster cluster apply-limits teardown \
@@ -24,7 +25,8 @@ SRE_AGENT_RELEASE ?= sre-agent$(if $(filter-out sre-agent,$(SRE_AGENT_APP_NAME))
 	build push buildpush \
 	build-apps push-apps build-chaos-monkey push-chaos-monkey build-mcp-server push-mcp-server build-sre-agent push-sre-agent \
 	setup-strimzi setup-kafka setup-monitoring setup-logging setup-alerting setup-tracing \
-	deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-sre-agent deploy-dashboards \
+	deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-sre-agents deploy-sre-agent deploy-sre-agent-producer deploy-sre-agent-consumer deploy-dashboards \
+	deploy-command-center \
 	redeploy-apps redeploy-chaos-monkey \
 	grafana-port-forward grafana-password kafka-ui-port-forward mcp-port-forward \
 	check check-python
@@ -35,7 +37,7 @@ SRE_AGENT_RELEASE ?= sre-agent$(if $(filter-out sre-agent,$(SRE_AGENT_APP_NAME))
 #
 # setup-monitoring runs before setup-kafka because the Kafka manifests include
 # ServiceMonitor/PodMonitor resources that require the monitoring CRDs.
-all: buildpush setup-strimzi setup-monitoring setup-kafka setup-logging setup-alerting setup-tracing deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-dashboards
+all: buildpush setup-strimzi setup-monitoring setup-kafka setup-logging setup-alerting setup-tracing deploy-apps deploy-chaos-monkey deploy-chaos-monkey-dashboard deploy-mcp-server deploy-sre-agents deploy-dashboards
 
 bootstrap-cluster:
 	infra/kind/bootstrap-kind-cluster.sh
@@ -167,10 +169,22 @@ deploy-mcp-server:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/mcp-server.yaml
 	$(KUBECTL) apply -f deploy/manifests/monitoring/mcp-server-servicemonitor.yaml
 
+deploy-sre-agents: deploy-sre-agent deploy-sre-agent-producer deploy-sre-agent-consumer
+
 deploy-sre-agent:
 	$(HELM) upgrade --install $(SRE_AGENT_RELEASE) deploy/charts/sre-agent --namespace $(SRE_AGENT_NAMESPACE) --create-namespace \
+		-f $(SRE_AGENT_VALUES_FILE) \
 		--set app.name=$(SRE_AGENT_APP_NAME) \
 		--set app.namespace=$(SRE_AGENT_APP_NAMESPACE)
+
+deploy-sre-agent-producer:
+	$(MAKE) deploy-sre-agent SRE_AGENT_APP_NAME=producer SRE_AGENT_VALUES_FILE=deploy/charts/sre-agent/values-producer.yaml
+
+deploy-sre-agent-consumer:
+	$(MAKE) deploy-sre-agent SRE_AGENT_APP_NAME=consumer SRE_AGENT_VALUES_FILE=deploy/charts/sre-agent/values-consumer.yaml
+
+deploy-command-center:
+	$(KUBECTL) apply -f deploy/manifests/monitoring/command-center.yaml
 
 deploy-dashboards:
 	$(KUBECTL) apply -f deploy/manifests/monitoring/kafka-dashboard.yaml

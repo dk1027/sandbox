@@ -61,7 +61,8 @@ What this does under the hood:
 2. Installs the `kube-prometheus-stack` so the monitoring CRDs exist before Kafka manifests apply their `ServiceMonitor`/`PodMonitor` resources (`make setup-monitoring`).
 3. Installs the KRaft-based Kafka cluster, Schema Registry, and Kafka UI (`make setup-kafka`).
 4. Deploys the Python producer/consumer apps using `deploy/charts/kafka-apps` (`make deploy-apps`).
-5. Deploys the Chaos Monkey controller/daemonset and dashboard (`make deploy-chaos-monkey`, `make deploy-chaos-monkey-dashboard`).
+5. Deploys the SRE-agent releases for the default app, producer, and consumer scopes (`make deploy-sre-agents`).
+6. Deploys the Chaos Monkey controller/daemonset and dashboard (`make deploy-chaos-monkey`, `make deploy-chaos-monkey-dashboard`).
 
 `make all` assumes the cluster already exists. Cluster creation, node resource limits, the TLS registry, and ingress-nginx are handled by the bootstrap script.
 

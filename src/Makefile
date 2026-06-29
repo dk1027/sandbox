@@ -1,6 +1,6 @@
-.PHONY: build push buildpush build-apps push-apps build-chaos-monkey push-chaos-monkey build-mcp-server push-mcp-server build-sre-agent push-sre-agent
+.PHONY: build push buildpush build-apps push-apps build-chaos-monkey push-chaos-monkey build-mcp-server push-mcp-server build-sre-agent push-sre-agent build-command-center push-command-center
 
-build: build-apps build-chaos-monkey build-mcp-server build-sre-agent
+build: build-apps build-chaos-monkey build-mcp-server build-sre-agent build-command-center
 
 build-apps:
 	$(MAKE) -C producer build
@@ -15,7 +15,10 @@ build-mcp-server:
 build-sre-agent:
 	$(MAKE) -C sre-agent build
 
-push: push-apps push-chaos-monkey push-mcp-server push-sre-agent
+build-command-center:
+	$(MAKE) -C sre-agent/command-center build
+
+push: push-apps push-chaos-monkey push-mcp-server push-sre-agent push-command-center
 
 push-apps:
 	$(MAKE) -C producer push
@@ -29,5 +32,8 @@ push-mcp-server:
 
 push-sre-agent:
 	$(MAKE) -C sre-agent push
+
+push-command-center:
+	$(MAKE) -C sre-agent/command-center push
 
 buildpush: build push

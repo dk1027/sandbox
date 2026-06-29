@@ -2,4 +2,5 @@
 /generated/*
 !/generated/.gitignore
 /infra/kind/certs/
+/src/sre-agent/src/
 *__pycache__*

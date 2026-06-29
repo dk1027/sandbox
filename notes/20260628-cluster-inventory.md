@@ -92,19 +92,19 @@ Created by `make setup-strimzi` and `make setup-kafka`:
 
 ### Apps namespace
 
-Created by `make deploy-apps` and `make deploy-chaos-monkey`:
+Created by `make deploy-apps`, `make deploy-chaos-monkey`, and `make deploy-sre-agents`:
 
 - Kafka apps Helm release `kafka-apps` in `apps`
   - producer Deployment + Service + ServiceMonitor
   - consumer Deployment + Service + ServiceMonitor
+- SRE-agent Helm releases in `apps`
+  - `sre-agent`
+  - `sre-agent-producer`
+  - `sre-agent-consumer`
+  - each release has its own Deployment, Service, ServiceMonitor, and Alertmanager receiver wiring
 - Chaos Monkey Helm release `chaos-monkey` in `apps`
   - controller Deployment + Service + ServiceMonitor
   - daemonSet + headless Service + ServiceMonitor
-
-## What is not part of the default `make all` success state
-
-- `deploy/charts/sre-agent` is present in the repo and has its own deploy target, but it is not invoked by the default `make all` target.
-- If the SRE-agent stack is needed, it must be deployed separately with `make deploy-sre-agent`.
 
 ## Health checks / success criteria
 
@@ -123,10 +123,12 @@ A successful run is defined by the following evidence:
 - Workload-level probes pass for repo-owned apps:
   - producer: `/metrics` readiness/liveness
   - consumer: `/metrics` readiness/liveness
+  - sre-agent releases: `/healthz` readiness/liveness and `/metrics` scraping
   - mcp-server: `/metrics` readiness/liveness
   - chaos-monkey daemon/controller: `/metrics` ServiceMonitors and running pods
 - Prometheus is configured to scrape the repo-owned metrics surfaces:
   - producer/consumer ServiceMonitors on port `metrics`
+  - sre-agent ServiceMonitors on port `http`
   - chaos-monkey controller/daemon ServiceMonitors on `/metrics`
   - mcp-server ServiceMonitor on `/metrics`
   - Kafka ServiceMonitors for broker/exporter metrics
@@ -154,4 +156,4 @@ A successful run is defined by the following evidence:
 
 ## Bottom line
 
-After `make recreate-cluster` + `make all`, the expected healthy environment is a freshly recreated Kind cluster with ingress-nginx and local registry bootstrap complete, plus the Kafka, monitoring, logging, tracing, app, chaos, dashboard, and MCP workloads above running and scrapeable.
+After `make recreate-cluster` + `make all`, the expected healthy environment is a freshly recreated Kind cluster with ingress-nginx and local registry bootstrap complete, plus the Kafka, monitoring, logging, tracing, app, SRE-agent, chaos, dashboard, and MCP workloads above running and scrapeable.
